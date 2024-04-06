@@ -1,0 +1,26 @@
+.page-body {
+    background-color: #00ff00;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    color: #00FF00;
+}
+
+.title {
+    font-size: 24px;
+    color: #FF0000;
+}
+
+.time {
+    font-size: 16px;
+    color: #333333;
+}
+
+.players {
+    font-size: 18px;
+    color: #000000;
+}
+
+.tournament {
+    font-size: 16px;
+    color: #666666;
+}
