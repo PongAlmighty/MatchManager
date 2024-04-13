@@ -1,26 +1,88 @@
 .page-body {
-    background-color: #00ff00;
+    background-color: #e1ff00;
     font-family: Arial, sans-serif;
     font-size: 16px;
-    color: #00FF00;
+    color: #eeff00;
+    text-align: center;    
 }
 
 .title {
-    font-size: 24px;
+    font-size: 35px;
     color: #FF0000;
+    font-family: "Stick No Bills", sans-serif;
+    font-weight: 600;
+    font-style: normal;
+      
+}
+
+.subtitle {
+    color: #FF0000;
+    font-size: 15px;
+    text-align: center;  
+}
+
+.centered_matches {
+    text-align: center;
 }
 
 .time {
     font-size: 16px;
-    color: #333333;
+    color: #444444;
+    font-family: "Yantramanav", sans-serif;
+    font-weight: 400;
+    font-style: normal;
 }
 
 .players {
-    font-size: 18px;
+    font-size: 60px;
     color: #000000;
+    font-family: "Stick No Bills", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 800;
+    font-style: normal;
+    text-align: center;
 }
 
 .tournament {
     font-size: 16px;
     color: #666666;
+    font-family: "Yantramanav", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
+.yantramanav-thin {
+  font-family: "Yantramanav", sans-serif;
+  font-weight: 100;
+  font-style: normal;
+}
+
+.yantramanav-light {
+  font-family: "Yantramanav", sans-serif;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.yantramanav-regular {
+  font-family: "Yantramanav", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.yantramanav-medium {
+  font-family: "Yantramanav", sans-serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.yantramanav-bold {
+  font-family: "Yantramanav", sans-serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.yantramanav-black {
+  font-family: "Yantramanav", sans-serif;
+  font-weight: 900;
+  font-style: normal;
 }

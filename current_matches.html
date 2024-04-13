@@ -1,19 +1,65 @@
 <!DOCTYPE html>
 <html>
-<head><title>Current Matches</title>
-<link rel="stylesheet" href="styles.css">
+<head>
+    <title>Current Matches</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@200..800&family=Yantramanav:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
 </head>
 <body class="page-body">
-<h1 class="title">Upcoming Matches</h1>
-<p><span class="time">08:49 PM</span> - <span class="players">THREE BIG GUYS vs Vaquero</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">08:52 PM</span> - <span class="players">Crescendo vs Red40</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">08:55 PM</span> - <span class="players">Vengeance vs Botterfly</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">08:58 PM</span> - <span class="players">Ouroboros vs Lil Ragnarök</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">09:01 PM</span> - <span class="players">U.F.O. vs Action Surge</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">09:04 PM</span> - <span class="players">Piano vs Phantom</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">09:07 PM</span> - <span class="players">Wilbur vs LIBERATOR</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">09:10 PM</span> - <span class="players">Red Hot Chili Bot vs BLOCKBUSTER</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">09:13 PM</span> - <span class="players">Púca vs HIGH5</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
-<p><span class="time">09:16 PM</span> - <span class="players">Shredder Cheddar vs Supreme 📏</span> <span class="tournament">(Sonoran Showdown: Beetleweight)</span></p>
+    <span class="title">Upcoming Matches</span><br>
+    <span class="subtitle">(All times approx.)</span>
+    <div id="matches">
+        <!-- Match details will be dynamically injected here -->
+    </div>
 </body>
+    <script>
+      //matchElement.innerHTML = `<span class="time">${match.time}</span> - <span class="players">${match.player1} vs ${match.player2}</span> <span class="tournament">(${match.tournament})</span>`;
+      function update_scoreboard(player_list, refresh_ms) {
+          console.log('updating Scoreboard')
+          
+          var high_scores_html = "";
+          
+          $.each( player_list, function( i, player ) {
+            player_data = 
+              `
+              <span class="players">${player.player1} vs ${player.player2}</span> <br>
+              <span class="time">${player.time}</span>  
+              <span class="tournament">(${player.tournament})</span>`;
+              high_scores_html += '<p class="centered_matches">' + player_data + '</p>\n</span>'
+          });
+          $('#matches').html(high_scores_html)
+          //typed = new Typed('#player_list', {
+          //      strings: [high_scores_html, ''],
+          //      typeSpeed: 80,
+          //      backSpeed: 40,
+          //      backDelay: refresh_ms,
+          //      showCursor: false,
+          //      onComplete: function(){
+          //          $('#player_list_container').html('');
+          //          get_scores(refresh_ms);
+          //      },
+          //});
+      };
+  
+      function get_scores() {
+          $.ajax({
+            url: '/matches_data.json',
+            cache: false,
+            error: function(){
+              update_scoreboard([]);
+            },
+            success: function(player_list){
+              update_scoreboard(player_list);
+            },
+          });
+      };
+  
+     
+      get_scores();
+      console.log('hi mom');
+      setInterval(get_scores, 20000);
+    </script>
 </html>
