@@ -51,6 +51,14 @@
     font-style: normal;
 }
 
+.NextOpponent {
+    font-size: 16px;
+    color: #666666;
+    font-family: "Yantramanav", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
 .yantramanav-thin {
   font-family: "Yantramanav", sans-serif;
   font-weight: 100;

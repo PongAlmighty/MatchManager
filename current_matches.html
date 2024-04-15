@@ -27,7 +27,9 @@
               `
               <span class="players">${player.player1} vs ${player.player2}</span> <br>
               <span class="time">${player.time}</span>  
-              <span class="tournament">(${player.tournament})</span>`;
+              <span class="tournament">(${player.tournament})</span>
+              <span class="NextOpponent">${player.NextOpp}</span>`
+              ;
               high_scores_html += '<p class="centered_matches">' + player_data + '</p>\n</span>'
           });
           $('#matches').html(high_scores_html)
