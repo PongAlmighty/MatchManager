@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Filtered Matches</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@200..800&family=Yantramanav:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+</head>
+<body class="page-body">
+    <span class="title">Filtered Upcoming Matches</span><br>
+    <span class="subtitle">(Only with future opponents listed)</span>
+    <div id="matches">
+        <!-- Match details for filtered matches will be dynamically injected here -->
+    </div>
+</body>
+<script>
+  function update_scoreboard(player_list) {
+    var matches_html = "";
+    $.each(player_list, function(i, player) {
+      var player_data = 
+        `<div class="centered_matches">
+          <span class="players">${player.player1} vs ${player.player2}</span> <br>
+          <span class="time">${player.time}</span>  
+          <span class="tournament">(${player.tournament})</span>
+          <span class="NextOpponent">${player.NextOpp}</span>
+        </div>`;
+      matches_html += player_data;
+    });
+    $('#matches').html(matches_html);
+  };
+
+  function get_filtered_matches() {
+    $.ajax({
+      url: '/filtered_matches_data.json',
+      cache: false,
+      success: function(player_list){
+        update_scoreboard(player_list);
+      },
+      error: function(){
+        update_scoreboard([]);
+      }
+    });
+  };
+
+  $(document).ready(function(){
+    get_filtered_matches();
+    setInterval(get_filtered_matches, 20000); // Refresh every 20 seconds
+  });
+</script>
+</html>

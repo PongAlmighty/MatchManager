@@ -47,7 +47,7 @@ def write_data_to_json_file(data, filename):
         json.dump(data, file, indent=4, default=custom_json_serializer)
 
 if __name__ == "__main__":
-    tournament_id = "SonoranShowdownBeetleweight"  # Change this to your specific tournament ID
+    tournament_id = "lfq938ts"  # Change this to your specific tournament ID
     data = None
 
     if api_test_to_perform == "tournament_details":

@@ -44,7 +44,7 @@ def interleave_matches(tournaments):
   interleaved_with_fill = zip_longest(*matches_list)
   list_of_tuples = chain.from_iterable(interleaved_with_fill)
   remove_fill = [x for x in list_of_tuples if x is not None]
-  return remove_fill[:6]
+  return remove_fill[:]
 
 
 def get_pending_matches(tournaments):
@@ -77,12 +77,24 @@ def application(environ, start_response):
     start_response(status, headers)
     with open('styles.css', 'rb') as f:
       return [f.read()]
+  elif path == '/filtered_matches.html':
+      status = '200 OK'
+      headers = [('Content-type', 'text/html')]
+      start_response(status, headers)
+      with open('filtered_matches.html', 'rb') as f:
+          return [f.read()]
+  elif path == '/current_matches.html':
+      status = '200 OK'
+      headers = [('Content-type', 'text/html')]
+      start_response(status, headers)
+      with open('current_matches.html', 'rb') as f:
+          return [f.read()]
   else:
     UserName = os.environ['CHALLONGE_USERNAME']
     APIKey = os.environ['CHALLONGE_API_KEY']
     challonge.set_credentials(UserName, APIKey)
     tournament_ids = [
-        "SonoranShowdownBeetleweight", "2024UCRSpringFlingBeetles"
+        "lfq938ts", "SonoranShowdownBeetleweight"
     ]
     tournaments = {}
     for tid in tournament_ids:
@@ -105,7 +117,13 @@ def application(environ, start_response):
       tournaments[t]["matches"] = matches
     ordered_matches = interleave_matches(tournaments)
 
-    if path == '/matches_data.json':
+    if path == '/filtered_matches_data.json':
+      status = '200 OK'
+      headers = [('Content-type', 'application/json')]
+      start_response(status, headers)
+      flt_match_data = generate_filtered_matches_data_for_json(tournaments)
+      return [json.dumps(flt_match_data).encode("utf-8")]
+    elif  path == '/matches_data.json':
       status = '200 OK'
       headers = [('Content-type', 'application/json')]
       start_response(status, headers)
@@ -177,6 +195,11 @@ def generate_matches_data_for_json(tournaments):
       match_start += MATCH_DELAY  # Increment start time for each match
   return json_data
 
+def generate_filtered_matches_data_for_json(tournaments):
+  json_data = []
+  json_data = generate_matches_data_for_json(tournaments)
+  filtered_json_data = [match for match in json_data if match["NextOpp"]]
+  return filtered_json_data
 
 if __name__ == "__main__":
   httpd = make_server('', 8000, application)
