@@ -1,15 +1,14 @@
 # Standard library imports
+import json
+import os
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 from operator import itemgetter
-import os
-import sys
-import pytz
 from wsgiref.simple_server import make_server
+
 # Related third-party imports
 import challonge
-import time
-import json
+import pytz
 
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
