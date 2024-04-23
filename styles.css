@@ -1,5 +1,5 @@
 .page-body {
-    background-color: #e1ff00;
+    background-color: #00ff00;
     font-family: Arial, sans-serif;
     font-size: 16px;
     color: #eeff00;
@@ -42,6 +42,15 @@
     font-style: normal;
     text-align: center;
 }
+.players-small {
+    font-size: 35px;
+    color: #000000;
+    font-family: "Stick No Bills", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 800;
+    font-style: normal;
+    text-align: center;
+}
 
 .tournament {
     font-size: 16px;
@@ -52,8 +61,8 @@
 }
 
 .NextOpponent {
-    font-size: 16px;
-    color: #666666;
+    font-size: 20px;
+    color: #424242;
     font-family: "Yantramanav", sans-serif;
     font-weight: 400;
     font-style: normal;

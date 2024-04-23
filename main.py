@@ -94,7 +94,7 @@ def application(environ, start_response):
     APIKey = os.environ['CHALLONGE_API_KEY']
     challonge.set_credentials(UserName, APIKey)
     tournament_ids = [
-        "lfq938ts", "SonoranShowdownBeetleweight"
+        "PongsTestTournament01" , "SonoranShowdownBeetleweight"
     ]
     tournaments = {}
     for tid in tournament_ids:
@@ -173,6 +173,8 @@ def generate_matches_data_for_json(tournaments):
         NxtOpponent = NxtMatch.get("player1_name")
         if NxtOpponent is None:
           NxtOpponent = NxtMatch.get("player2_name")
+      # for testing Porpoises only \/ \/ \/
+      #NxtOpponent = 'NextMatchNumber' + str(NxtMatchID)
       NxtOpponent = '' if NxtOpponent is None else 'Winner Fights: ' + NxtOpponent
 
       match_data = {

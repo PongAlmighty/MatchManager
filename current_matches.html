@@ -19,13 +19,13 @@
       //matchElement.innerHTML = `<span class="time">${match.time}</span> - <span class="players">${match.player1} vs ${match.player2}</span> <span class="tournament">(${match.tournament})</span>`;
       function update_scoreboard(player_list, refresh_ms) {
           console.log('updating Scoreboard')
-          
+          player_list = player_list.slice(0, 9);
           var high_scores_html = "";
           
           $.each( player_list, function( i, player ) {
             player_data = 
               `
-              <span class="players">${player.player1} vs ${player.player2}</span> <br>
+              <span class="players-small">${player.player1} vs ${player.player2}</span> <br>
               <span class="time">${player.time}</span>  
               <span class="tournament">(${player.tournament})</span>
               <span class="NextOpponent">${player.NextOpp}</span>`
