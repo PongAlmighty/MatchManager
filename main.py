@@ -94,7 +94,7 @@ def application(environ, start_response):
     APIKey = os.environ['CHALLONGE_API_KEY']
     challonge.set_credentials(UserName, APIKey)
     tournament_ids = [
-        "PongsTestTournament01" , "SonoranShowdownBeetleweight"
+        "2024UCRSpringFlingBeetles" , "2024UCRSpringFlingPlasticAnts"
     ]
     tournaments = {}
     for tid in tournament_ids:
