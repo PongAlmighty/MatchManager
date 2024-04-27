@@ -38,10 +38,11 @@ def interleave_matches(tournaments):
       t["matches"]
       for t in sorted(tournaments.values(), key=most_recent_match_time)
   ]
+  sorted_matches_list = [None]*len(matches_list)
   for i, ml in enumerate(matches_list):
-    matches_list[i] = sorted([m for m in ml if m["state"] == "open"],
+    sorted_matches_list[i] = sorted([m for m in ml if m["state"] == "open"],
                              key=itemgetter("suggested_play_order"))
-  interleaved_with_fill = zip_longest(*matches_list)
+  interleaved_with_fill = zip_longest(*sorted_matches_list)
   list_of_tuples = chain.from_iterable(interleaved_with_fill)
   remove_fill = [x for x in list_of_tuples if x is not None]
   return remove_fill[:]
@@ -52,10 +53,11 @@ def get_pending_matches(tournaments):
       t["matches"]
       for t in sorted(tournaments.values(), key=most_recent_match_time)
   ]
+  sorted_matches_list = [None]*len(matches_list)
   for i, ml in enumerate(matches_list):
-    matches_list[i] = sorted([m for m in ml if m["state"] == "pending"],
+    sorted_matches_list[i] = sorted([m for m in ml if m["state"] == "pending"],
                              key=itemgetter("suggested_play_order"))
-  interleaved_with_fill = zip_longest(*matches_list)
+  interleaved_with_fill = zip_longest(*sorted_matches_list)
   list_of_tuples = chain.from_iterable(interleaved_with_fill)
   remove_fill = [x for x in list_of_tuples if x is not None]
   return remove_fill
