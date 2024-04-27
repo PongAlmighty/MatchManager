@@ -2,16 +2,10 @@
   "files": {
     "main.py": [
       {
-        "id": "f07687e7-16e8-4d4c-be22-a592a684782d",
-        "line": 1,
-        "version": 1550,
-        "index": 0
-      },
-      {
-        "id": "36de2488-3c89-4302-b0b7-ab3c52273ea2",
-        "line": 1,
-        "version": 1550,
-        "index": 0
+        "id": "f86e1dca-7533-466b-ad60-b8d9b2f8bbf7",
+        "line": 45,
+        "version": 1865,
+        "index": 1837
       }
     ]
   }

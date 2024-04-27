@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Current Matches</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,12 +12,11 @@
     <span class="title">Upcoming Matches</span><br>
     <span class="subtitle">(All times approx.)</span>
     <div id="matches">
-        <!-- Match details will be dynamically injected here -->
+       
     </div>
 </body>
     <script>
-      //matchElement.innerHTML = `<span class="time">${match.time}</span> - <span class="players">${match.player1} vs ${match.player2}</span> <span class="tournament">(${match.tournament})</span>`;
-      function update_scoreboard(player_list, refresh_ms) {
+      function update_scoreboard(player_list) {
           console.log('updating Scoreboard')
           player_list = player_list.slice(0, 9);
           var high_scores_html = "";
@@ -27,8 +26,8 @@
               `
               <span class="players-small">${player.player1} vs ${player.player2}</span> <br>
               <span class="time">${player.time}</span>  
-              <span class="tournament">(${player.tournament})</span>`
-              <!--<span class="NextOpponent">${player.NextOpp}</span>-->
+              <span class="tournament">(${player.tournament})</span>
+              <span class="NextOpponent">${player.NextOpp}</span>`;
               ;
               high_scores_html += '<p class="centered_matches">' + player_data + '</p>\n</span>'
           });
