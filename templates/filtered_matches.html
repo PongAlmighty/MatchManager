@@ -14,27 +14,27 @@
     </div>
 </body>
 <script>
-  function update_scoreboard(player_list) {
+  function update_scoreboard(match_list) {
     var matches_html = "";
-    $.each(player_list, function(i, player) {
-      var player_data = 
+    $.each(match_list, function(i, match) {
+      var match_data = 
         `<div class="centered_matches">
-          <span class="players">${player.player1} vs ${player.player2}</span> <br>
-          <span class="time">${player.time}</span>  
-          <span class="tournament">(${player.tournament})</span>
-          <span class="NextOpponent">${player.NextOpp}</span>
+          <span class="players">${match.player1} vs ${match.player2}</span> <br>
+          <span class="time">${match.time}</span>  
+          <span class="tournament">(${match.tournament})</span>
+          <span class="NextOpponent">${match.NxtName}</span>
         </div>`;
-      matches_html += player_data;
+      matches_html += match_data;
     });
     $('#matches').html(matches_html);
   };
 
   function get_filtered_matches() {
     $.ajax({
-      url: '/filtered_matches_data.json',
+      url: '/filtered_matches.json',
       cache: false,
-      success: function(player_list){
-        update_scoreboard(player_list);
+      success: function(match_list){
+        update_scoreboard(match_list);
       },
       error: function(){
         update_scoreboard([]);
