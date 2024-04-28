@@ -11,7 +11,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "main.py"]
+run = "gunicorn -w 4 -b 0.0.0.0:8000 main:app"
 deploymentTarget = "cloudrun"
 
 [[ports]]
