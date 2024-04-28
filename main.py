@@ -29,62 +29,62 @@ def get_all_matches(tournament_id):
         if m.get("player2_prereq_match_id"):
             prerequisite_matches.setdefault(m["player2_prereq_match_id"], []).append(m["id"])
 
-    next_player_matches = {}
+    relevant_matches = []
     for match in matches:
         match_id = match["id"]
         next_ids = prerequisite_matches.get(match_id)
+        nextPlayerName = None
+        nextMatchId = None
+
         if next_ids:
             next_match = next((m for m in matches if m["id"] == next_ids[0]), None)
             if next_match:
                 next_player_id = next_match.get("player1_id") or next_match.get("player2_id")
-                next_player_name = participants_dict.get(next_player_id, None)
-                currentMatchId = match_id
+                nextPlayerName = "Next Opponent: " + participants_dict.get(next_player_id) if next_player_id else ""
                 nextMatchId = next_ids[0]
-                nextPlayerName = next_player_name
-                if match_id == 364002003:
-                    print(f"Next player ID: {next_player_id}")  # Debugging output
-                    print(f"Next player name: {nextPlayerName}")
-                    
-          
-            relevant_matches = []
-            for match in matches:
-                match_id = match["id"]
-                next_ids = prerequisite_matches.get(match_id)
-          
-                # Initialize default values for nextPlayerName and nextMatchId here
-                nextPlayerName = None
-                nextMatchId = None
-          
-                if next_ids:
-                    next_match = next((m for m in matches if m["id"] == next_ids[0]), None)
-                    if next_match:
-                        next_player_id = next_match.get("player1_id") or next_match.get("player2_id")
-                        nextPlayerName = "Next Opponent: " + participants_dict.get(next_player_id) if next_player_id else ""
-                        nextMatchId = next_ids[0]
-                        #if match_id == 364002003:
-                            #print(f"Next player ID: {next_player_id}")  # Debugging output
-                            #print(f"Next player name: {nextPlayerName}")
-          
-                # Now constructs relevant_matches with the guaranteed initialized variables
-                if match["state"] != "complete" and (match.get("player1_id") or match.get("player2_id")):
-                    relevant_matches.append({
-                        "id": match["id"],
-                        "tournament_id": match["tournament_id"],
-                        "state": match["state"],
-                        "player1_id": match["player1_id"],
-                        "player1_name": participants_dict.get(match.get("player1_id"), None),
-                        "player2_id": match["player2_id"],
-                        "player2_name": participants_dict.get(match.get("player2_id"), None),
-                        "player1_prereq_match_id": match["player1_prereq_match_id"],
-                        "player2_prereq_match_id": match["player2_prereq_match_id"],
-                        "created_at": match["created_at"],
-                        "updated_at": match["updated_at"],
-                        "round": match["round"],
-                        "suggested_play_order": match["suggested_play_order"],
-                        "next_player_match": nextMatchId,  
-                        "next_player_name": nextPlayerName  
-                    })
+
+        if match["state"] != "complete" and (match.get("player1_id") or match.get("player2_id")):
+            relevant_matches.append({
+                "id": match["id"],
+                "tournament_id": match["tournament_id"],
+                "state": match["state"],
+                "player1_id": match["player1_id"],
+                "player1_name": participants_dict.get(match.get("player1_id"), None),
+                "player2_id": match["player2_id"],
+                "player2_name": participants_dict.get(match.get("player2_id"), None),
+                "player1_prereq_match_id": match["player1_prereq_match_id"],
+                "player2_prereq_match_id": match["player2_prereq_match_id"],
+                "created_at": match["created_at"],
+                "updated_at": match["updated_at"],
+                "round": match["round"],
+                "suggested_play_order": match["suggested_play_order"],
+                "next_player_match": nextMatchId,  
+                "next_player_name": nextPlayerName  
+            })
     return relevant_matches
+
+def interleave_matches(matches):
+    # Group matches by tournament_id
+    grouped_matches = {}
+    for match in matches:
+        grouped_matches.setdefault(match['tournament_id'], []).append(match)
+
+    # Sort each group by suggested_play_order
+    for tournament_id in grouped_matches:
+        grouped_matches[tournament_id].sort(key=lambda x: x['suggested_play_order'])
+
+    # Interleave matches from each tournament in round-robin style
+    interleaved_matches = []
+    while any(grouped_matches.values()):
+        for tournament_id in list(grouped_matches):  # Use list to avoid RuntimeError
+            if grouped_matches[tournament_id]:
+                interleaved_matches.append(grouped_matches[tournament_id].pop(0))
+            else:
+                del grouped_matches[tournament_id]
+
+    return interleaved_matches
+
+    return interleaved_matches
 
 def most_recent_match_time(tournament):
     most_recent_match_time = datetime.min.replace(tzinfo=timezone)
@@ -98,17 +98,6 @@ def most_recent_match_time(tournament):
             most_recent_match_time = match_time
     return most_recent_match_time
 
-def interleave_matches(tournaments):
-    matches_list = [t["matches"] for t in sorted(tournaments.values(), key=most_recent_match_time)]
-    sorted_matches_list = [[] for _ in matches_list]
-    for i, ml in enumerate(matches_list):
-        sorted_matches_list[i] = sorted(ml, key=itemgetter("suggested_play_order"), 
-                                        reverse=False)  
-    interleaved_with_fill = zip_longest(*sorted_matches_list)
-    list_of_tuples = chain.from_iterable(interleaved_with_fill)
-    remove_fill = [x for x in list_of_tuples if x is not None]
-    return remove_fill
-
 def fetch_pending_matches(tournaments):
     pending_matches = []
     for tournament in tournaments.values():
@@ -121,7 +110,7 @@ def fetch_pending_matches(tournaments):
 @app.route('/current_matches')
 def index():
     return render_template('current_matches.html')
-  
+
 @app.route('/filtered_matches')
 def filtered_matches():
     filtered_data = generate_json_from_matches_by_state("all")
@@ -157,54 +146,43 @@ def open_matches():
     return generate_json_from_matches_by_state("open")
 
 def generate_json_from_matches_by_state(state_filter):
-    tournaments = {}
+    all_relevant_matches = []
     match_start = datetime.now(timezone) + NEXT_MATCH_START
     json_data = []
     for tid in tournament_ids:
         try:
             tournament = challonge.tournaments.show(tid)
-            tournaments[tournament["id"]] = tournament
             matches = get_all_matches(tid)
+            for m in matches:
+                m['tournament'] = tournament.get('name', 'Unknown Tournament')  # Add tournament name to match
+            all_relevant_matches.extend(matches)  # Collecting matches from all tournaments
+
             if state_filter in ["pending", "open"]:
-                matches = [match for match in matches if match["state"] == state_filter]
-            participants = challonge.participants.index(tid)
-            tournaments[tournament["id"]]["participants"] = {p["id"]: p for p in participants}
-            tournaments[tournament["id"]]["matches"] = matches
+                all_relevant_matches = [match for match in all_relevant_matches if match["state"] == state_filter]
 
-            filtered_matches = matches if state_filter != "pending" else fetch_pending_matches(tournaments)
-
-            for match in filtered_matches:
-                if match["state"] not in ["open", "pending"]:
-                    continue
-
-                tournament_id = match["tournament_id"]
-                tournament = tournaments.get(tournament_id, {})
-                tournament_name = tournament.get("name", "Unknown Tournament")
-                participants = tournament.get("participants", {})
-
-                player1_name = participants.get(match.get('player1_id'), {}).get('name', None)
-                player2_name = participants.get(match.get('player2_id'), {}).get('name', None)
-                
-
-
-                match_data = {
-                    "MatchId": match["id"],
-                    "time": match_start.strftime('%I:%M%P %Z'),
-                    "player1": player1_name,
-                    "player2": player2_name,
-                    "tournament": tournament_name,
-                    "status": match.get("state", "open"),
-                    "NxtMatch": match["next_player_match"],
-                    "NxtName": match["next_player_name"],
-                    "round": match["round"],
-                    "suggested_play_order": match["suggested_play_order"]
-                }
-                json_data.append(match_data)
-                match_start += MATCH_DELAY
         except Exception as e:
             print(f"Failed to load tournament {tid}: {e}")
-            return jsonify({"error": f"Failed to load tournament {tid}."})
-    return jsonify(json_data)
+            continue  # Skip to the next tournament if any error occurs
 
-if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    interleaved_matches = interleave_matches(all_relevant_matches)  # Interleave matches here based on tournament name and suggested play order
+
+    for match in interleaved_matches:
+        if match["state"] not in ["open", "pending"]:
+            continue
+
+        match_data = {
+            "MatchId": match["id"],
+            "time": match_start.strftime('%I:%M%P %Z'),
+            "player1": match["player1_name"],
+            "player2": match["player2_name"],
+            "tournament": match["tournament"],
+            "status": match.get("state", "open"),
+            "NxtMatch": match["next_player_match"],
+            "NxtName": match["next_player_name"],
+            "round": match["round"],
+            "suggested_play_order": match["suggested_play_order"]
+        }
+        json_data.append(match_data)
+        match_start += MATCH_DELAY
+
+    return jsonify(json_data)
