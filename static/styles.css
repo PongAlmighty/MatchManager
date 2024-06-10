@@ -8,7 +8,7 @@
 
 .title {
     font-size: 50px;
-    color: red;
+    color: #984b45;
     font-family: "Orbitron", sans-serif;
     font-weight: 700;
     font-style: normal;
@@ -16,7 +16,7 @@
 }
 
 .subtitle {
-    color: red;
+    color: #984b45;
     font-size: 15px;
     text-align: center;  
 }
@@ -27,7 +27,7 @@
 
 .time {
     font-size: 16px;
-    color: #444444;
+    color: #976b44;
     font-family: "Yantramanav", sans-serif;
     font-weight: 400;
     font-style: normal;
@@ -35,7 +35,7 @@
 
 .players {
     font-size: 60px;
-    color: #000000;
+    color: #eac479;
     font-family: "Orbitron", sans-serif;
     font-optical-sizing: auto;
     font-weight: 700;
@@ -44,7 +44,7 @@
 }
 .players-small {
     font-size: 40px;
-    color: #000000;
+    color: #eac479;
     font-family: "Orbitron", sans-serif;
     font-optical-sizing: auto;
     font-weight: 700;
@@ -54,7 +54,7 @@
 
 .tournament {
     font-size: 16px;
-    color: #292929;
+    color: #976b44;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
     font-style: normal;
@@ -62,10 +62,18 @@
 
 .NextOpponent {
     font-size: 16px;
-    color: #121212;
+    color: #eac479;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
     font-style: normal;
+}
+
+.roundedRec { /*rounded rectangle behind text*/
+    position: relative;
+    padding: 30px;
+    background-color: #222a37; /* Color of the rounded rectangle */
+    border-radius: 25px; /* Rounded corners */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Optional: add a subtle shadow */
 }
 
 .yantramanav-thin {
