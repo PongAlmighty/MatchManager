@@ -1,5 +1,5 @@
 .page-body {
-    background-color: #00ff00;
+    background-color: lime;
     font-family: Arial, sans-serif;
     font-size: 16px;
     color: #eeff00;
@@ -7,16 +7,16 @@
 }
 
 .title {
-    font-size: 35px;
-    color: #FF0000;
-    font-family: "Stick No Bills", sans-serif;
-    font-weight: 600;
+    font-size: 50px;
+    color: red;
+    font-family: "Orbitron", sans-serif;
+    font-weight: 700;
     font-style: normal;
       
 }
 
 .subtitle {
-    color: #FF0000;
+    color: red;
     font-size: 15px;
     text-align: center;  
 }
@@ -36,35 +36,35 @@
 .players {
     font-size: 60px;
     color: #000000;
-    font-family: "Stick No Bills", sans-serif;
+    font-family: "Orbitron", sans-serif;
     font-optical-sizing: auto;
-    font-weight: 800;
+    font-weight: 700;
     font-style: normal;
     text-align: center;
 }
 .players-small {
-    font-size: 35px;
+    font-size: 40px;
     color: #000000;
-    font-family: "Stick No Bills", sans-serif;
+    font-family: "Orbitron", sans-serif;
     font-optical-sizing: auto;
-    font-weight: 800;
+    font-weight: 700;
     font-style: normal;
     text-align: center;
 }
 
 .tournament {
     font-size: 16px;
-    color: #666666;
+    color: #292929;
     font-family: "Yantramanav", sans-serif;
-    font-weight: 400;
+    font-weight: 500;
     font-style: normal;
 }
 
 .NextOpponent {
-    font-size: 20px;
-    color: #424242;
+    font-size: 16px;
+    color: #121212;
     font-family: "Yantramanav", sans-serif;
-    font-weight: 400;
+    font-weight: 500;
     font-style: normal;
 }
 
