@@ -1,5 +1,5 @@
 .page-body {
-    background-color: lime;
+    background-color: #0c1373;
     font-family: Arial, sans-serif;
     font-size: 16px;
     color: #eeff00;
@@ -9,8 +9,8 @@
 .title {
     font-size: 50px;
     color: #984b45;
-    font-family: "Orbitron", sans-serif;
-    font-weight: 700;
+    font-family: "Manrope", sans-serif;
+    font-weight: 900;
     font-style: normal;
       
 }
@@ -35,8 +35,8 @@
 
 .players {
     font-size: 60px;
-    color: #eac479;
-    font-family: "Orbitron", sans-serif;
+    color: #ffaa00;
+    font-family: "Manrope", sans-serif;
     font-optical-sizing: auto;
     font-weight: 700;
     font-style: normal;
@@ -44,8 +44,8 @@
 }
 .players-small {
     font-size: 40px;
-    color: #eac479;
-    font-family: "Orbitron", sans-serif;
+    color: #ffaa00;
+    font-family: "Manrope", sans-serif;
     font-optical-sizing: auto;
     font-weight: 700;
     font-style: normal;
@@ -62,7 +62,7 @@
 
 .NextOpponent {
     font-size: 16px;
-    color: #eac479;
+    color: ##ffaa00;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
     font-style: normal;
@@ -71,7 +71,7 @@
 .roundedRec { /*rounded rectangle behind text*/
     position: relative;
     padding: 30px;
-    background-color: #222a37; /* Color of the rounded rectangle */
+    background-color: #410101; /* Color of the rounded rectangle */
     border-radius: 25px; /* Rounded corners */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Optional: add a subtle shadow */
 }
