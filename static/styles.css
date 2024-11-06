@@ -1,5 +1,5 @@
 .page-body {
-    background-color: #e5e5e5;
+    background-color: #c0c0c0;
     font-family: Arial, sans-serif;
     font-size: 16px;
     color: #FFFFFF;
@@ -17,7 +17,7 @@
 
 .subtitle {
     color: #984b45;
-    font-size: 15px;
+    font-size: 17px;
     text-align: center;  
 }
 
@@ -53,7 +53,7 @@
 }
 
 .tournament {
-    font-size: 16px;
+    font-size: 18px;
     color: #A9A9A9 ;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
@@ -61,7 +61,7 @@
 }
 
 .NextOpponent {
-    font-size: 16px;
+    font-size: 20px;
     color: ##A9A9A9 ;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
