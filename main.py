@@ -52,36 +52,22 @@ def get_all_matches(tournament_id):
         if match["state"] != "complete" and (match.get("player1_id")
                                              or match.get("player2_id")):
             relevant_matches.append({
-                "id":
-                match["id"],
-                "tournament_id":
-                match["tournament_id"],
-                "state":
-                match["state"],
-                "player1_id":
-                match["player1_id"],
-                "player1_name":
-                participants_dict.get(match.get("player1_id"), None),
-                "player2_id":
-                match["player2_id"],
-                "player2_name":
-                participants_dict.get(match.get("player2_id"), None),
-                "player1_prereq_match_id":
-                match["player1_prereq_match_id"],
-                "player2_prereq_match_id":
-                match["player2_prereq_match_id"],
-                "created_at":
-                match["created_at"],
-                "updated_at":
-                match["updated_at"],
-                "round":
-                match["round"],
-                "suggested_play_order":
-                match["suggested_play_order"],
-                "next_player_match":
-                nextMatchId,
-                "next_player_name":
-                nextPlayerName
+                "id": match["id"],
+                "tournament_id": match["tournament_id"],
+                "state": match["state"],
+                "player1_id": match["player1_id"],
+                "player1_name": participants_dict.get(match.get("player1_id"), None),
+                "player2_id": match["player2_id"],
+                "player2_name": participants_dict.get(match.get("player2_id"), None),
+                "player1_prereq_match_id": match["player1_prereq_match_id"],
+                "player2_prereq_match_id": match["player2_prereq_match_id"],
+                "created_at": match["created_at"],
+                "updated_at": match["updated_at"],
+                "round": match["round"],
+                "suggested_play_order": match["suggested_play_order"],
+                "next_player_match": nextMatchId,
+                "next_player_name": nextPlayerName,
+                "underway_at": match["underway_at"]            
             })
     return relevant_matches
 
@@ -177,6 +163,28 @@ def open_matches():
     return generate_json_from_matches_by_state("open")
 
 
+@app.route('/single_match')
+def single_match():
+    # Fetch all matches with state "open" and "underway_at" not null
+    matches_data = generate_json_from_matches_by_state("open")
+    matches = matches_data.get_json()
+    # Filter for matches with "underway_at" not null
+    selected_match = next(
+        (match for match in matches if match.get('underway_at')), None)
+    if selected_match:
+        match_participants = {
+            "player1": selected_match["player1"],
+            "player2": selected_match["player2"]
+        }
+        return render_template('single_match.html', match=match_participants)
+    else:
+        return render_template('single_match.html',
+                               match={
+                                   "player1": "No Match",
+                                   "player2": "Available"
+                               })
+
+
 def generate_json_from_matches_by_state(state_filter):
     all_relevant_matches = []
     match_start = datetime.now(timezone) + NEXT_MATCH_START
@@ -220,7 +228,8 @@ def generate_json_from_matches_by_state(state_filter):
             "NxtMatch": match["next_player_match"],
             "NxtName": match["next_player_name"],
             "round": match["round"],
-            "suggested_play_order": match["suggested_play_order"]
+            "suggested_play_order": match["suggested_play_order"],
+            "underway_at": match["underway_at"]
         }
         json_data.append(match_data)
         match_start += MATCH_DELAY
