@@ -45,10 +45,8 @@ def get_all_matches(tournament_id):
             if next_match:
                 next_player_id = next_match.get(
                     "player1_id") or next_match.get("player2_id")
-                if next_player_id:
-                    nextPlayerName = "Next Opponent: " + participants_dict.get(next_player_id, "")
-                else:
-                    nextPlayerName = ""
+                nextPlayerName = "Next Opponent: " + participants_dict.get(
+                    next_player_id) if next_player_id else ""
                 nextMatchId = next_ids[0]
 
         if match["state"] != "complete" and (match.get("player1_id")
@@ -188,7 +186,9 @@ def generate_json_from_matches_by_state(state_filter):
             tournament = challonge.tournaments.show(tid)
             matches = get_all_matches(tid)
             for m in matches:
-                m['tournament'] = tournament.get('name','Unknown Tournament')  # Add tournament name to match
+                m['tournament'] = tournament.get(
+                    'name',
+                    'Unknown Tournament')  # Add tournament name to match
             all_relevant_matches.extend(
                 matches)  # Collecting matches from all tournaments
 

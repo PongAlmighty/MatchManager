@@ -9,7 +9,7 @@ CHALLONGE_API_KEY = os.environ['CHALLONGE_API_KEY']
 challonge.set_credentials(CHALLONGE_USERNAME, CHALLONGE_API_KEY)
 
 # Define a variable for the API test you want to conduct
-api_test_to_perform = "list_participants"  # Can be 'tournament_details', 'list_tournaments', 'list_matches', etc.
+api_test_to_perform = "list_matches"  # Can be 'tournament_details', 'list_tournaments', 'list_matches', etc.
 
 def custom_json_serializer(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -56,7 +56,7 @@ def write_data_to_json_file(data, filename):
         json.dump(data, file, indent=4, default=custom_json_serializer)
 
 if __name__ == "__main__":
-    tournament_id = "2024UCRSpringFlingBeetles"  # Change this to your specific tournament ID
+    tournament_id = "PongsTestTournament01"  # Change this to your specific tournament ID
     data = None
 
     if api_test_to_perform == "tournament_details":

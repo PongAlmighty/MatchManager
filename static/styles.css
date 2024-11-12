@@ -1,14 +1,14 @@
 .page-body {
-    background-color: #c0c0c0;
+    background-color: #fad000;
     font-family: Arial, sans-serif;
     font-size: 16px;
-    color: #FFFFFF;
+    color: ##ffea00;
     text-align: center;    
 }
 
 .title {
     font-size: 50px;
-    color: #FF5733 ;
+    color: #FF6F61 ;
     font-family: "Manrope", sans-serif;
     font-weight: 900;
     font-style: normal;
@@ -71,7 +71,7 @@
 .roundedRec { /*rounded rectangle behind text*/
     position: relative;
     padding: 30px;
-    background-color: #1E1E1E; /* Color of the rounded rectangle */
+    background-color: #4B4B4B; /* Color of the rounded rectangle */
     border-radius: 25px; /* Rounded corners */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); /* Larger and darker shadow */
 }
