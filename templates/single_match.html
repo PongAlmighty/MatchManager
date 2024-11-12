@@ -8,12 +8,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Yantramanav:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
 </head>
 <body class="page-body">
-    <div class="roundedRec">
-        <span class="title">Versus</span>
-        <div class="centered_matches">
-            <span class="players">{{ match.player1 }}</span><br>
-            <span class="players">{{ match.player2 }}</span>
-        </div>
+    <div class="vsRoundedRec">
+        <span class="players-small">{{ match.player1 }}</span>
+        <span class="vs">Vs.</span>
+        <span class="players-small">{{ match.player2 }}</span>
+    </div>
+    <div class="small-timeBox">
+        <!-- Other content can go here if needed -->
     </div>
 </body>
 </html>

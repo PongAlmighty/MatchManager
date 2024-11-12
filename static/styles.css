@@ -1,3 +1,8 @@
+:root {
+    --title-color: #FF6F61; /* Define a custom property for the highlight color */
+}
+
+
 .page-body {
     background-color: #fad000;
     font-family: Arial, sans-serif;
@@ -8,7 +13,7 @@
 
 .title {
     font-size: 50px;
-    color: #FF6F61 ;
+    color: var(--highlight-color) ;
     font-family: "Manrope", sans-serif;
     font-weight: 900;
     font-style: normal;
@@ -74,6 +79,45 @@
     background-color: #4B4B4B; /* Color of the rounded rectangle */
     border-radius: 25px; /* Rounded corners */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); /* Larger and darker shadow */
+}
+
+.small-timeBox {
+    position: relative;
+    width: 20%; /* Set the width to 20% of the screen */
+    margin: 0 auto; /* Center the rectangle horizontally */
+    padding: 20px;
+    background-color: #4B4B4B; 
+    border-radius: 25px; 
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+}
+
+.vsRoundedRec { /*rounded rectangle behind text*/
+    position: relative;
+    padding: 5px;
+    background-color: #4B4B4B; /* Color of the rounded rectangle */
+    border-radius: 10px; /* Rounded corners */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7); /* Larger and darker shadow */
+}
+
+.match-header {
+    display: flex;
+    justify-content: center;
+    align-items: center; /* Align items vertically in the center */
+    padding: 20px;
+    background-color: #4B4B4B; /* Same as roundedRec for consistency */
+    border-radius: 25px; /* Apply rounded corners */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); /* Add shadow for effect */
+}
+.player1, .player2 {
+    font-size: 50px;
+    color: #FFFFFF;
+    font-family: "Manrope", sans-serif;
+    font-weight: 700;
+}
+.vs {
+    font-size: 50px;
+    color: var(--highlight-color); /* Match the color from the .title class */
+    margin: 0 20px; /* Add some space around "Vs." */
 }
 
 .yantramanav-thin {
