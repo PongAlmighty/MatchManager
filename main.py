@@ -11,7 +11,7 @@ from flask import Flask, jsonify, render_template
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
-timezone = pytz.timezone('America/Denver')
+timezone = pytz.timezone('America/Phoenix')
 tournament_ids = ["WolvesCombatClassicJanuary2025"]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
