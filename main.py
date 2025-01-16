@@ -11,8 +11,8 @@ from flask import Flask, jsonify, render_template
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
-timezone = pytz.timezone('America/Los_Angeles')
-tournament_ids = ["PongsTestTournament01"]
+timezone = pytz.timezone('America/Denver')
+tournament_ids = ["WolvesCombatClassicJanuary2025"]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
 challonge.set_credentials(UserName, APIKey)
@@ -163,8 +163,8 @@ def open_matches():
     return generate_json_from_matches_by_state("open")
 
 
-@app.route('/single_match')
-def single_match():
+@app.route('/vsbar')
+def vsbar():
     # Fetch all matches with state "open" and "underway_at" not null
     matches_data = generate_json_from_matches_by_state("open")
     matches = matches_data.get_json()
@@ -176,13 +176,14 @@ def single_match():
             "player1": selected_match["player1"],
             "player2": selected_match["player2"]
         }
-        return render_template('single_match.html', match=match_participants)
+        return render_template('vsbar.html', match=match_participants)
     else:
-        return render_template('single_match.html',
+        return render_template('vsbar.html',
                                match={
-                                   "player1": "No Match",
-                                   "player2": "Available"
+                                   "player1": "Opponent Names",
+                                   "player2": "Distracted EOs"
                                })
+
 
 
 def generate_json_from_matches_by_state(state_filter):

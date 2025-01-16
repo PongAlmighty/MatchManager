@@ -1,19 +1,33 @@
 :root {
-    --title-color: #FF6F61; /* Define a custom property for the highlight color */
+    --title-color: #000000; /* Define a custom property for the highlight color */
+    --subtitleColor: #111111; /* slightly darker version of title color*/
+    --recColor: #c4d8e2; /*Color of the rounded Rectangle*/
+    --playerNameColor: #666666; /*playerName*/
+    --backgroundColor: #00FF00; /*page background */
+    --darkerTextColor: #222222; /*Darker Text*/
+    --chromaGreen: #00ff00; /* Chromakey green */
 }
 
 
 .page-body {
-    background-color: #fad000;
+    background-color: var(--backgroundColor);
     font-family: Arial, sans-serif;
     font-size: 16px;
-    color: ##ffea00;
+    color: var(--title-color);
+    text-align: center;    
+}
+
+.chroma-body {
+    background-color: var(--chromaGreen);
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    color: var(--title-color);
     text-align: center;    
 }
 
 .title {
     font-size: 50px;
-    color: var(--highlight-color) ;
+    color: var(--title-color) ;
     font-family: "Manrope", sans-serif;
     font-weight: 900;
     font-style: normal;
@@ -32,7 +46,7 @@
 
 .time {
     font-size: 16px;
-    color: #A9A9A9 ;
+    color: var(--darkerTextColor) ;
     font-family: "Yantramanav", sans-serif;
     font-weight: 400;
     font-style: normal;
@@ -40,7 +54,7 @@
 
 .players {
     font-size: 60px;
-    color: #FFFFFF ;
+    color: var(--playerNameColor) ;
     font-family: "Manrope", sans-serif;
     font-optical-sizing: auto;
     font-weight: 700;
@@ -49,7 +63,7 @@
 }
 .players-small {
     font-size: 40px;
-    color: #FFFFFF ;
+    color: var(--playerNameColor) ;
     font-family: "Manrope", sans-serif;
     font-optical-sizing: auto;
     font-weight: 700;
@@ -59,7 +73,7 @@
 
 .tournament {
     font-size: 18px;
-    color: #A9A9A9 ;
+    color: var(--darkerTextColor) ;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
     font-style: normal;
@@ -67,7 +81,7 @@
 
 .NextOpponent {
     font-size: 20px;
-    color: ##A9A9A9 ;
+    color: var(--darkerTextColor) ;
     font-family: "Yantramanav", sans-serif;
     font-weight: 500;
     font-style: normal;
@@ -76,7 +90,7 @@
 .roundedRec { /*rounded rectangle behind text*/
     position: relative;
     padding: 30px;
-    background-color: #4B4B4B; /* Color of the rounded rectangle */
+    background-color: var(--recColor); /* Color of the rounded rectangle */
     border-radius: 25px; /* Rounded corners */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); /* Larger and darker shadow */
 }
@@ -86,17 +100,17 @@
     width: 20%; /* Set the width to 20% of the screen */
     margin: 0 auto; /* Center the rectangle horizontally */
     padding: 20px;
-    background-color: #4B4B4B; 
+    background-color: var(--recColor); 
     border-radius: 25px; 
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
 }
 
 .vsRoundedRec { /*rounded rectangle behind text*/
     position: relative;
-    padding: 5px;
-    background-color: #4B4B4B; /* Color of the rounded rectangle */
+    padding: 3px;
+    background-color: var(--recColor); /* Color of the rounded rectangle */
     border-radius: 10px; /* Rounded corners */
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7); /* Larger and darker shadow */
+    /*box-shadow: 0 5px 5px rgba(0, 0, 0, 1); /* Larger and darker shadow */
 }
 
 .match-header {
@@ -104,20 +118,21 @@
     justify-content: center;
     align-items: center; /* Align items vertically in the center */
     padding: 20px;
-    background-color: #4B4B4B; /* Same as roundedRec for consistency */
+    background-color: var(--recColor); /* Same as roundedRec for consistency */
     border-radius: 25px; /* Apply rounded corners */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); /* Add shadow for effect */
 }
 .player1, .player2 {
     font-size: 50px;
-    color: #FFFFFF;
+    color: var(--playerNameColor);
     font-family: "Manrope", sans-serif;
     font-weight: 700;
 }
 .vs {
-    font-size: 50px;
-    color: var(--highlight-color); /* Match the color from the .title class */
-    margin: 0 20px; /* Add some space around "Vs." */
+    font-size: 40px;
+    color: var(--playerNameColor);
+    margin: 0 10px; /* Add some space around "Vs." */
+    
 }
 
 .yantramanav-thin {
