@@ -115,14 +115,20 @@ def interleave_matches(matches):
 
 def most_recent_match_time(tournament):
     most_recent_match_time = datetime.min.replace(tzinfo=timezone)
-    for m in tournament["matches"]:
-        if m["state"] != "complete":
-            continue
-        match_time = m["updated_at"]
-        if isinstance(match_time, datetime):
-            match_time = match_time.replace(tzinfo=timezone)
-        if match_time > most_recent_match_time:
-            most_recent_match_time = match_time
+    try:
+        for m in tournament.get("matches", []):
+            if m.get("state") != "complete":
+                continue
+            match_time = m.get("updated_at")
+            if isinstance(match_time, str):
+                match_time = datetime.fromisoformat(match_time)
+            if isinstance(match_time, datetime):
+                if match_time.tzinfo is None:
+                    match_time = match_time.replace(tzinfo=timezone)
+                if match_time > most_recent_match_time:
+                    most_recent_match_time = match_time
+    except Exception as e:
+        print(f"Error processing match times: {e}")
     return most_recent_match_time
 
 
@@ -208,18 +214,24 @@ def generate_json_from_matches_by_state(state_filter):
     for tid in tournament_ids:
         try:
             tournament = challonge.tournaments.show(tid)
+            if not tournament:
+                print(f"Tournament {tid} not found")
+                continue
+                
             matches = get_all_matches(tid)
+            if not matches:
+                print(f"No matches found for tournament {tid}")
+                continue
+                
+            tournament_name = tournament.get('name', 'Unknown Tournament')
             for m in matches:
-                m['tournament'] = tournament.get(
-                    'name',
-                    'Unknown Tournament')  # Add tournament name to match
-            all_relevant_matches.extend(
-                matches)  # Collecting matches from all tournaments
+                m['tournament'] = tournament_name
+            all_relevant_matches.extend(matches)
 
             if state_filter in ["pending", "open"]:
                 all_relevant_matches = [
                     match for match in all_relevant_matches
-                    if match["state"] == state_filter
+                    if match.get("state") == state_filter
                 ]
 
         except Exception as e:
