@@ -19,10 +19,13 @@
 
 .chroma-body {
     background-color: var(--chromaGreen);
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    color: var(--title-color);
-    text-align: center;    
+    font-family: "Manrope", sans-serif;
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
 
 .title {
