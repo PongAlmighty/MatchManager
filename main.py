@@ -149,19 +149,37 @@ def index():
 
 @app.route('/filtered_matches')
 def filtered_matches():
-    filtered_data = generate_json_from_matches_by_state("all")
-    filtered_matches = [
-        match for match in filtered_data.get_json() if match["NxtName"] != ""
-    ]
+    try:
+        filtered_data = generate_json_from_matches_by_state("all")
+        if not filtered_data:
+            print("WARNING: No filtered data returned")
+            filtered_matches = []
+        else:
+            filtered_matches = [
+                match for match in filtered_data.get_json()
+                if match.get("NxtName", "") != ""
+            ]
+    except Exception as e:
+        print(f"ERROR: Failed to generate filtered matches: {e}")
+        filtered_matches = []
     return render_template('filtered_matches.html', matches=filtered_matches)
 
 
 @app.route('/filtered_matches.json')
 def raw_filtered_matches():
-    filtered_data = generate_json_from_matches_by_state("all")
-    filtered_matches = [
-        match for match in filtered_data.get_json() if match["NxtName"] != ""
-    ]
+    try:
+        filtered_data = generate_json_from_matches_by_state("all")
+        if not filtered_data:
+            print("WARNING: No filtered data returned")
+            filtered_matches = []
+        else:
+            filtered_matches = [
+                match for match in filtered_data.get_json()
+                if match.get("NxtName", "") != ""
+            ]
+    except Exception as e:
+        print(f"ERROR: Failed to generate filtered matches: {e}")
+        filtered_matches = []
     return jsonify(filtered_matches)
 
 
@@ -217,12 +235,12 @@ def generate_json_from_matches_by_state(state_filter):
             if not tournament:
                 print(f"Tournament {tid} not found")
                 continue
-                
+
             matches = get_all_matches(tid)
             if not matches:
                 print(f"No matches found for tournament {tid}")
                 continue
-                
+
             tournament_name = tournament.get('name', 'Unknown Tournament')
             for m in matches:
                 m['tournament'] = tournament_name
