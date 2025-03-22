@@ -11,8 +11,8 @@ from flask import Flask, jsonify, render_template
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
-timezone = pytz.timezone('America/Phoenix')
-tournament_ids = ["WolvesCombatClassicJanuary2025"]
+timezone = pytz.timezone('America/Los_Angeles')
+tournament_ids = ["WSB25PLANT", "WSB25FAIRY"]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
 challonge.set_credentials(UserName, APIKey)
@@ -52,22 +52,38 @@ def get_all_matches(tournament_id):
         if match["state"] != "complete" and (match.get("player1_id")
                                              or match.get("player2_id")):
             relevant_matches.append({
-                "id": match["id"],
-                "tournament_id": match["tournament_id"],
-                "state": match["state"],
-                "player1_id": match["player1_id"],
-                "player1_name": participants_dict.get(match.get("player1_id"), None),
-                "player2_id": match["player2_id"],
-                "player2_name": participants_dict.get(match.get("player2_id"), None),
-                "player1_prereq_match_id": match["player1_prereq_match_id"],
-                "player2_prereq_match_id": match["player2_prereq_match_id"],
-                "created_at": match["created_at"],
-                "updated_at": match["updated_at"],
-                "round": match["round"],
-                "suggested_play_order": match["suggested_play_order"],
-                "next_player_match": nextMatchId,
-                "next_player_name": nextPlayerName,
-                "underway_at": match["underway_at"]            
+                "id":
+                match["id"],
+                "tournament_id":
+                match["tournament_id"],
+                "state":
+                match["state"],
+                "player1_id":
+                match["player1_id"],
+                "player1_name":
+                participants_dict.get(match.get("player1_id"), None),
+                "player2_id":
+                match["player2_id"],
+                "player2_name":
+                participants_dict.get(match.get("player2_id"), None),
+                "player1_prereq_match_id":
+                match["player1_prereq_match_id"],
+                "player2_prereq_match_id":
+                match["player2_prereq_match_id"],
+                "created_at":
+                match["created_at"],
+                "updated_at":
+                match["updated_at"],
+                "round":
+                match["round"],
+                "suggested_play_order":
+                match["suggested_play_order"],
+                "next_player_match":
+                nextMatchId,
+                "next_player_name":
+                nextPlayerName,
+                "underway_at":
+                match["underway_at"]
             })
     return relevant_matches
 
@@ -183,7 +199,6 @@ def vsbar():
                                    "player1": "Opponent Names",
                                    "player2": "Distracted EOs"
                                })
-
 
 
 def generate_json_from_matches_by_state(state_filter):
