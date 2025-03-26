@@ -12,7 +12,7 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone('America/Los_Angeles')
-tournament_ids = ["WSB25PLANT", "WSB25FAIRY"]
+tournament_ids = ["PongsTestTournament01"]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
 challonge.set_credentials(UserName, APIKey)
@@ -212,17 +212,10 @@ def vsbar():
     selected_match = next(
         (match for match in matches if match.get('underway_at')), None)
     if selected_match:
-        match_participants = {
-            "player1": selected_match["player1"],
-            "player2": selected_match["player2"]
-        }
-        return render_template('vsbar.html', match=match_participants)
+        match_description = f"{selected_match['player1']} Vs. {selected_match['player2']}"
+        return render_template('vsbar.html', match=match_description)
     else:
-        return render_template('vsbar.html',
-                               match={
-                                   "player1": "Opponent Names",
-                                   "player2": "Distracted EOs"
-                               })
+        return render_template('vsbar.html', match=".")
 
 
 def generate_json_from_matches_by_state(state_filter):
