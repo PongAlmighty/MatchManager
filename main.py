@@ -212,10 +212,19 @@ def vsbar():
     selected_match = next(
         (match for match in matches if match.get('underway_at')), None)
     if selected_match:
-        match_description = f"{selected_match['player1']} Vs. {selected_match['player2']}"
-        return render_template('vsbar.html', match=match_description)
+        match_data = {
+            'player1': selected_match['player1'],
+            'versus': 'Vs.',
+            'player2': selected_match['player2']
+        }
+        return render_template('vsbar.html', match=match_data)
     else:
-        return render_template('vsbar.html', match=".")
+        match_data = {
+            'player1': '',
+            'versus': '',
+            'player2': ''
+        }
+        return render_template('vsbar.html', match=match_data)
 
 
 def generate_json_from_matches_by_state(state_filter):
