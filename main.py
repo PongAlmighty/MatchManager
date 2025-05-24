@@ -11,8 +11,8 @@ from flask import Flask, jsonify, render_template
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
-timezone = pytz.timezone('America/Los_Angeles')
-tournament_ids = ["PongsTestTournament01"]
+timezone = pytz.timezone('America/Denver')
+tournament_ids = ["UCRSF25Fairy","UCRSF25FCAnt","UCRSF25Plant","UCRSF25Beetles"]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
 challonge.set_credentials(UserName, APIKey)
@@ -221,7 +221,7 @@ def vsbar():
     else:
         match_data = {
             'player1': '',
-            'versus': '',
+            'versus': '.',
             'player2': ''
         }
         return render_template('vsbar.html', match=match_data)
