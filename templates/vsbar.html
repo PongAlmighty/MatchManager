@@ -10,9 +10,11 @@
 <body class="chroma-body">
     <!--<div class="vsRoundedRec"> -->
     <div class="match-container">
-        <span class="players-small">{{ match.player1 }}</span>
-        <span class="vs">{{ match.versus|safe }}</span>
-        <span class="players-small">{{ match.player2 }}</span>
+        <div class="fixed-width">
+            <span class="player1-name">{{ match.player1 }}</span>
+            <span class="vs">{{ match.versus|safe }}</span>
+            <span class="player2-name">{{ match.player2 }}</span>
+        </div>
     </div>
     <!--</div>
     <!--<div class="small-timeBox">
