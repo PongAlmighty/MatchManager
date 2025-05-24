@@ -2,9 +2,9 @@
     --title-color: #000000; /* Define a custom property for the highlight color */
     --subtitleColor: #111111; /* slightly darker version of title color*/
     --recColor: #00ff00; /*Color of the rounded Rectangle*/
-    --playerNameColor: #403f3f; /*playerName*/
+    --playerNameColor: #000000; /*playerName*/
     --backgroundColor: #00FF00; /*page background */
-    --darkerTextColor: #222222; /*Darker Text*/
+    --darkerTextColor: #000000; /*Darker Text*/
     --chromaGreen: #00ff00; /* Chromakey green */
 }
 
