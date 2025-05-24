@@ -214,7 +214,7 @@ def vsbar():
     if selected_match:
         match_data = {
             'player1': selected_match['player1'],
-            'versus': '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;',
+            'versus': '&nbsp;&nbsp;&nbsp;',
             'player2': selected_match['player2']
         }
         return render_template('vsbar.html', match=match_data)
