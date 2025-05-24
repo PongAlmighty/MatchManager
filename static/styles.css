@@ -55,18 +55,16 @@
 .players {
     font-size: 60px;
     color: var(--playerNameColor) ;
-    font-family: "Manrope", sans-serif;
+    font-family: "Bebas Neue", sans-serif;
     font-optical-sizing: auto;
-    font-weight: 700;
     font-style: normal;
     text-align: center;
 }
 .players-small {
     font-size: 40px;
     color: var(--playerNameColor) ;
-    font-family: "Manrope", sans-serif;
+    font-family: "Bebas Neue", sans-serif;
     font-optical-sizing: auto;
-    font-weight: 700;
     font-style: normal;
     text-align: center;
 }
