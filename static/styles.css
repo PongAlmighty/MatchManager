@@ -70,7 +70,7 @@
 .fixed-width {
     width: 1600px;
     display: grid;
-    grid-template-columns: 1fr 200px 1fr;
+    grid-template-columns: 750px 100px 750px;
     align-items: center;
 }
 
@@ -79,7 +79,10 @@
     color: var(--playerNameColor);
     font-family: "Bebas Neue", sans-serif;
     text-align: right;
-    padding-right: 20px;
+    padding-right: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .player2-name {
@@ -87,13 +90,17 @@
     color: var(--playerNameColor);
     font-family: "Bebas Neue", sans-serif;
     text-align: left;
-    padding-left: 20px;
+    padding-left: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .vs {
     text-align: center;
     font-size: 40px;
     color: var(--playerNameColor);
+    width: 100px;
 }
 
 .players-small {
