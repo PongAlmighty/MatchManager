@@ -147,18 +147,70 @@ def index():
     return render_template('current_matches.html')
 
 
+def filter_next_matches_per_participant(matches):
+    """Filter to show only the next match for each participant in round robin tournaments"""
+    participant_next_match = {}
+    
+    # Group matches by tournament to handle each separately
+    tournament_groups = {}
+    for match in matches:
+        tournament_id = match.get("tournament", "")
+        if tournament_id not in tournament_groups:
+            tournament_groups[tournament_id] = []
+        tournament_groups[tournament_id].append(match)
+    
+    filtered_matches = []
+    
+    for tournament_id, tournament_matches in tournament_groups.items():
+        # Check if this is a round robin by looking for matches with next opponents
+        has_next_opponents = any(match.get("NxtName", "") != "" for match in tournament_matches)
+        
+        if has_next_opponents:
+            # For tournaments with next opponents, show all matches with next opponents
+            filtered_matches.extend([
+                match for match in tournament_matches
+                if match.get("NxtName", "") != ""
+            ])
+        else:
+            # For round robin tournaments, show only next match per participant
+            participant_next_match = {}
+            
+            # Sort matches by suggested play order to find the next match for each participant
+            sorted_matches = sorted(tournament_matches, key=lambda x: x.get("suggested_play_order", 0))
+            
+            for match in sorted_matches:
+                player1 = match.get("player1", "")
+                player2 = match.get("player2", "")
+                
+                # Only consider matches that are open or pending
+                if match.get("status") in ["open", "pending"] and player1 and player2:
+                    # Add this match as the next match for both participants if they don't have one yet
+                    if player1 not in participant_next_match:
+                        participant_next_match[player1] = match
+                    if player2 not in participant_next_match:
+                        participant_next_match[player2] = match
+            
+            # Add unique matches to filtered list
+            added_match_ids = set()
+            for match in participant_next_match.values():
+                match_id = match.get("MatchId")
+                if match_id not in added_match_ids:
+                    filtered_matches.append(match)
+                    added_match_ids.add(match_id)
+    
+    return filtered_matches
+
+
 @app.route('/filtered_matches')
 def filtered_matches():
     try:
-        filtered_data = generate_json_from_matches_by_state("all")
-        if not filtered_data:
-            print("WARNING: No filtered data returned")
+        all_data = generate_json_from_matches_by_state("all")
+        if not all_data:
+            print("WARNING: No data returned")
             filtered_matches = []
         else:
-            filtered_matches = [
-                match for match in filtered_data.get_json()
-                if match.get("NxtName", "") != ""
-            ]
+            all_matches = all_data.get_json()
+            filtered_matches = filter_next_matches_per_participant(all_matches)
     except Exception as e:
         print(f"ERROR: Failed to generate filtered matches: {e}")
         filtered_matches = []
@@ -168,15 +220,13 @@ def filtered_matches():
 @app.route('/filtered_matches.json')
 def raw_filtered_matches():
     try:
-        filtered_data = generate_json_from_matches_by_state("all")
-        if not filtered_data:
-            print("WARNING: No filtered data returned")
+        all_data = generate_json_from_matches_by_state("all")
+        if not all_data:
+            print("WARNING: No data returned")
             filtered_matches = []
         else:
-            filtered_matches = [
-                match for match in filtered_data.get_json()
-                if match.get("NxtName", "") != ""
-            ]
+            all_matches = all_data.get_json()
+            filtered_matches = filter_next_matches_per_participant(all_matches)
     except Exception as e:
         print(f"ERROR: Failed to generate filtered matches: {e}")
         filtered_matches = []
