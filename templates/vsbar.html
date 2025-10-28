@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Single Match</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,9 +12,9 @@
     <!--<div class="vsRoundedRec"> -->
     <div class="match-container">
         <div class="fixed-width">
-            <span class="player1-name">{{ match.player1 }}</span>
+            <span class="player1-name">{{ match.player1|safe }}</span>
             <span class="vs">{{ match.versus|safe }}</span>
-            <span class="player2-name">{{ match.player2 }}</span>
+            <span class="player2-name">{{ match.player2|safe }}</span>
         </div>
     </div>
     <!--</div>
