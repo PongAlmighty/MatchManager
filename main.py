@@ -12,7 +12,7 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone('America/Denver')
-tournament_ids = ["UCRSS25Fairy","UCRSS25FCAnt","UCRSS25PLAnt","UCRSS25Beetle"]
+tournament_ids = ["PongsEmoteTest"]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
 challonge.set_credentials(UserName, APIKey)
@@ -150,7 +150,7 @@ def index():
 def filter_next_matches_per_participant(matches):
     """Filter to show only the next match for each participant in round robin tournaments"""
     participant_next_match = {}
-    
+
     # Group matches by tournament to handle each separately
     tournament_groups = {}
     for match in matches:
@@ -158,13 +158,14 @@ def filter_next_matches_per_participant(matches):
         if tournament_id not in tournament_groups:
             tournament_groups[tournament_id] = []
         tournament_groups[tournament_id].append(match)
-    
+
     filtered_matches = []
-    
+
     for tournament_id, tournament_matches in tournament_groups.items():
         # Check if this is a round robin by looking for matches with next opponents
-        has_next_opponents = any(match.get("NxtName", "") != "" for match in tournament_matches)
-        
+        has_next_opponents = any(
+            match.get("NxtName", "") != "" for match in tournament_matches)
+
         if has_next_opponents:
             # For tournaments with next opponents, show all matches with next opponents
             filtered_matches.extend([
@@ -174,22 +175,25 @@ def filter_next_matches_per_participant(matches):
         else:
             # For round robin tournaments, show only next match per participant
             participant_next_match = {}
-            
+
             # Sort matches by suggested play order to find the next match for each participant
-            sorted_matches = sorted(tournament_matches, key=lambda x: x.get("suggested_play_order", 0))
-            
+            sorted_matches = sorted(
+                tournament_matches,
+                key=lambda x: x.get("suggested_play_order", 0))
+
             for match in sorted_matches:
                 player1 = match.get("player1", "")
                 player2 = match.get("player2", "")
-                
+
                 # Only consider matches that are open or pending
-                if match.get("status") in ["open", "pending"] and player1 and player2:
+                if match.get("status") in ["open", "pending"
+                                           ] and player1 and player2:
                     # Add this match as the next match for both participants if they don't have one yet
                     if player1 not in participant_next_match:
                         participant_next_match[player1] = match
                     if player2 not in participant_next_match:
                         participant_next_match[player2] = match
-            
+
             # Add unique matches to filtered list
             added_match_ids = set()
             for match in participant_next_match.values():
@@ -197,7 +201,7 @@ def filter_next_matches_per_participant(matches):
                 if match_id not in added_match_ids:
                     filtered_matches.append(match)
                     added_match_ids.add(match_id)
-    
+
     return filtered_matches
 
 
@@ -269,11 +273,7 @@ def vsbar():
         }
         return render_template('vsbar.html', match=match_data)
     else:
-        match_data = {
-            'player1': '',
-            'versus': '.',
-            'player2': ''
-        }
+        match_data = {'player1': '', 'versus': '.', 'player2': ''}
         return render_template('vsbar.html', match=match_data)
 
 
