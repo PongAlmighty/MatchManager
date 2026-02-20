@@ -13,7 +13,7 @@ NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone('America/Denver')
 tournament_ids = [
-    "UCRKK2025FAIRY", "UCRKK2025PLANT", "UCRKK2025FCANT", "UCRKK2025BEETLE"
+    "UCRPC26Fairy", "UCRPC26FCAnt", "UCRPC26Plant", "UCRPC26Beetles"
 ]
 UserName = os.environ['CHALLONGE_USERNAME']
 APIKey = os.environ['CHALLONGE_API_KEY']
