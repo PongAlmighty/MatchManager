@@ -15,11 +15,11 @@ run = "gunicorn -w 4 -b 0.0.0.0:8000 main:app"
 deploymentTarget = "cloudrun"
 
 [[ports]]
-localPort = 8000
+localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5000
+localPort = 8000
 externalPort = 80
 
 [agent]
