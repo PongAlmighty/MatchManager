@@ -11,8 +11,8 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = "gunicorn -w 4 -b 0.0.0.0:8000 main:app"
-deploymentTarget = "cloudrun"
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "-w", "4", "main:app"]
+deploymentTarget = "autoscale"
 
 [[ports]]
 localPort = 5000
