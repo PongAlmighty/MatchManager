@@ -12,7 +12,7 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = ["goodevent_fairies", "goodevent_plants"]
+tournament_ids = ["evac_bring_water_slaughter_150g_fairyweight", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
 UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
 challonge.set_credentials(UserName, APIKey)
