@@ -12,17 +12,23 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = ["m4ysio3h", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
+tournament_ids = ["m4ysio3h", "PongsEmoteTest", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
 
 # Map each vsbar ring number to the tournament IDs that run on it.
 # Update this when the tournament list changes.
 RING_TOURNAMENTS = {
     1: ["evac_bring_water_slaughter_3lb_beetleweight", "m4ysio3h"],
-    2: ["evac_bring_water_slaughter_150g_fairyweight", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight"],
+    2: ["PongsEmoteTest", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight"],
 }
 UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
 challonge.set_credentials(UserName, APIKey)
+
+# Warn at startup if any ring is pointed at a tournament that isn't being fetched.
+for _ring, _slugs in RING_TOURNAMENTS.items():
+    for _slug in _slugs:
+        if _slug not in tournament_ids:
+            print(f"WARNING: Ring {_ring} references '{_slug}', which is not in tournament_ids. That ring will never show its matches.")
 
 
 def get_all_matches(tournament_id):
@@ -273,14 +279,17 @@ def vsbar_ring(ring):
 def vsbar_by_index(ring):
     matches_data = generate_json_from_matches_by_state("open")
     matches = matches_data.get_json()
-    ring_tournament_ids = RING_TOURNAMENTS.get(ring)
-    if ring_tournament_ids:
+    if ring is None:
+        # /vsbar: first underway match across ALL tournaments
+        underway = [match for match in matches if match.get("underway_at")]
+    else:
+        # /vsbar/<ring>: only this ring's tournaments.
+        # Unknown ring -> empty list -> blank screen (fail safe).
+        ring_tournament_ids = RING_TOURNAMENTS.get(ring, [])
         underway = [
             match for match in matches
             if match.get("underway_at") and match.get("tournament_slug") in ring_tournament_ids
         ]
-    else:
-        underway = [match for match in matches if match.get("underway_at")]
     selected_match = underway[0] if underway else None
     if selected_match:
         match_data = {

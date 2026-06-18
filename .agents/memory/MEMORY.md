@@ -1,0 +1,1 @@
+- [Flask server restart](flask-server-restart.md) — debug mode is OFF (no auto-reload); restart the `Flask Server` workflow after editing main.py before testing. Challonge fetches are slow (~10-40s/route).
