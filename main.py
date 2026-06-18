@@ -12,7 +12,8 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = ["PongsTestTournament01", "RCL_Championship_Sportsman_2026", "RCL_Championship_Featherweights_2026", "RCL_Championship_Hobbyweight_2026", "RCL_Championship_Beetleweight_2026", "RCL_Championship_PlasticAnt_2026",
+tournament_ids = ["PongsTestTournament01",
+"PongsEmoteTest", "RCL_Championship_Sportsman_2026", "RCL_Championship_Featherweights_2026", "RCL_Championship_Hobbyweight_2026", "RCL_Championship_Beetleweight_2026", "RCL_Championship_PlasticAnt_2026",
 "RCL_Championship_Antweight_2026",
 "RCL_Championship_Fairyweight_2026"]
 
@@ -20,7 +21,7 @@ tournament_ids = ["PongsTestTournament01", "RCL_Championship_Sportsman_2026", "R
 # Update this when the tournament list changes.
 RING_TOURNAMENTS = {
     1: ["PongsTestTournament01", "RCL_Championship_Sportsman_2026", "RCL_Championship_Featherweights_2026", "RCL_Championship_Hobbyweight_2026",     "RCL_Championship_Beetleweight_2026"],
-    2: ["RCL_Championship_PlasticAnt_2026",
+    2: ["PongsEmoteTest", "RCL_Championship_PlasticAnt_2026",
         "RCL_Championship_Antweight_2026",
         "RCL_Championship_Fairyweight_2026"],
 }
