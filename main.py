@@ -297,10 +297,13 @@ def vsbar_by_index(ring):
         ]
     selected_match = underway[0] if underway else None
     if selected_match:
+        def trim(name):
+            name = name or ""
+            return name[:12] + "…" if len(name) > 12 else name
         match_data = {
-            "player1": selected_match["player1"],
+            "player1": trim(selected_match["player1"]),
             "versus": "&nbsp;&nbsp;&nbsp;",
-            "player2": selected_match["player2"],
+            "player2": trim(selected_match["player2"]),
         }
         return render_template("vsbar.html", match=match_data)
     else:
