@@ -299,7 +299,7 @@ def vsbar_by_index(ring):
     if selected_match:
         def trim(name):
             name = name or ""
-            return name[:15] + "…" if len(name) > 15 else name
+            return name[:20] + "…" if len(name) > 20 else name
         match_data = {
             "player1": trim(selected_match["player1"]),
             "versus": "&nbsp;&nbsp;&nbsp;",
