@@ -13,6 +13,13 @@ NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
 tournament_ids = ["evac_bring_water_slaughter_150g_fairyweight", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
+
+# Map each vsbar ring number to the tournament IDs that run on it.
+# Update this when the tournament list changes.
+RING_TOURNAMENTS = {
+    1: ["evac_bring_water_slaughter_3lb_beetleweight"],
+    2: ["evac_bring_water_slaughter_150g_fairyweight", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight"],
+}
 UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
 challonge.set_credentials(UserName, APIKey)
@@ -266,8 +273,15 @@ def vsbar_ring(ring):
 def vsbar_by_index(ring):
     matches_data = generate_json_from_matches_by_state("open")
     matches = matches_data.get_json()
-    underway = [match for match in matches if match.get("underway_at")]
-    selected_match = underway[ring - 1] if ring <= len(underway) else None
+    ring_tournament_ids = RING_TOURNAMENTS.get(ring)
+    if ring_tournament_ids:
+        underway = [
+            match for match in matches
+            if match.get("underway_at") and match.get("tournament_slug") in ring_tournament_ids
+        ]
+    else:
+        underway = [match for match in matches if match.get("underway_at")]
+    selected_match = underway[0] if underway else None
     if selected_match:
         match_data = {
             "player1": selected_match["player1"],
@@ -299,6 +313,7 @@ def generate_json_from_matches_by_state(state_filter):
             tournament_name = tournament.get("name", "Unknown Tournament")
             for m in matches:
                 m["tournament"] = tournament_name
+                m["tournament_slug"] = tid
             all_relevant_matches.extend(matches)
 
             if state_filter in ["pending", "open"]:
@@ -326,6 +341,7 @@ def generate_json_from_matches_by_state(state_filter):
             "player1": match["player1_name"],
             "player2": match["player2_name"],
             "tournament": match["tournament"],
+            "tournament_slug": match.get("tournament_slug", ""),
             "status": match.get("state", "open"),
             "NxtMatch": match["next_player_match"],
             "NxtName": match["next_player_name"],
