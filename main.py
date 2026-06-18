@@ -255,13 +255,19 @@ def open_matches():
 
 @app.route("/vsbar")
 def vsbar():
-    # Fetch all matches with state "open" and "underway_at" not null
+    return vsbar_by_index(1)
+
+
+@app.route("/vsbar/<int:ring>")
+def vsbar_ring(ring):
+    return vsbar_by_index(ring)
+
+
+def vsbar_by_index(ring):
     matches_data = generate_json_from_matches_by_state("open")
     matches = matches_data.get_json()
-    # Filter for matches with "underway_at" not null
-    selected_match = next(
-        (match for match in matches if match.get("underway_at")), None
-    )
+    underway = [match for match in matches if match.get("underway_at")]
+    selected_match = underway[ring - 1] if ring <= len(underway) else None
     if selected_match:
         match_data = {
             "player1": selected_match["player1"],
