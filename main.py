@@ -12,13 +12,30 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = ["m4ysio3h", "PongsEmoteTest", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
+tournament_ids = [
+    "RCL_Championship_Sportsman_2026",
+    "RCL_Championship_Featherweights_2026",
+    "RCL_Championship_Hobbyweight_2026",
+    "RCL_Championship_Beetleweight_2026",
+    "RCL_Championship_PlasticAnt_2026",
+    "RCL_Championship_Antweight_2026",
+    "RCL_Championship_Fairyweight_2026",
+]
 
 # Map each vsbar ring number to the tournament IDs that run on it.
 # Update this when the tournament list changes.
 RING_TOURNAMENTS = {
-    1: ["evac_bring_water_slaughter_3lb_beetleweight", "m4ysio3h"],
-    2: ["PongsEmoteTest", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight"],
+    1: [
+        "RCL_Championship_Sportsman_2026",
+        "RCL_Championship_Featherweights_2026",
+        "RCL_Championship_Hobbyweight_2026",
+        "RCL_Championship_Beetleweight_2026",
+    ],
+    2: [
+        "RCL_Championship_PlasticAnt_2026",
+        "RCL_Championship_Antweight_2026",
+        "RCL_Championship_Fairyweight_2026",
+    ],
 }
 UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
