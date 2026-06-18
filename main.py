@@ -12,12 +12,12 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = ["evac_bring_water_slaughter_150g_fairyweight", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
+tournament_ids = ["m4ysio3h", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight", "evac_bring_water_slaughter_3lb_beetleweight"]
 
 # Map each vsbar ring number to the tournament IDs that run on it.
 # Update this when the tournament list changes.
 RING_TOURNAMENTS = {
-    1: ["evac_bring_water_slaughter_3lb_beetleweight"],
+    1: ["evac_bring_water_slaughter_3lb_beetleweight", "m4ysio3h"],
     2: ["evac_bring_water_slaughter_150g_fairyweight", "evac_bring_water_slaughter_1lb_antweight", "evac_bring_water_slaughter_1lb_plastic_antweight"],
 }
 UserName = os.environ["CHALLONGE_USERNAME"]
