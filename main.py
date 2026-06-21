@@ -21,7 +21,7 @@ tournament_ids = [ "https_challonge_com_rcl_championship_sportsman_2026", "https
 RING_TOURNAMENTS = {
     1: ["https_challonge_com_rcl_championship_sportsman_2026", "https_challonge_com_rcl_championship_featherweights_2026", "https_challonge_com_rcl_championship_hobbyweight_2026",     "https_challonge_com_rcl_championship_beetleweight_2026",
 "https_challonge_com_rcl_championship_antweight_2026"],
-    2: ["https_challonge_com_rcl_championship_plasticAnt_2026",
+    2: ["https_challonge_com_rcl_championship_plasticant_2026",
 "https_challonge_com_rcl_championship_fairyweight_2026"],
 }
 UserName = os.environ["CHALLONGE_USERNAME"]
