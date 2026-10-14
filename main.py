@@ -1,13 +1,15 @@
+import hmac
 import json
 import os
 import threading
 from datetime import datetime, timedelta
+from functools import wraps
 from itertools import chain, zip_longest
 from operator import itemgetter
 
 import challonge
 import pytz
-from flask import Flask, jsonify, render_template
+from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
@@ -36,6 +38,48 @@ CACHE_TTL = timedelta(seconds=10)
 _cache = {}
 _cache_lock = threading.Lock()
 
+# Quota guard: if no Challonge data has changed for IDLE_PAUSE, stop calling Challonge
+# and keep serving the last data until someone resumes from /admin.
+# This lives in memory, so a fresh Cloud Run instance always starts active.
+IDLE_PAUSE = timedelta(hours=2)
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+_state = {
+    "paused": False,
+    "paused_at": None,
+    "pause_reason": "",
+    "last_change": datetime.now(timezone),
+    "last_fetch": None,
+    "api_calls": 0,
+    "started": datetime.now(timezone),
+}
+
+
+class QueriesPaused(Exception):
+    pass
+
+
+def api(fn, *args):
+    """Make one Challonge call and count it against the quota."""
+    _state["api_calls"] += 1
+    return fn(*args)
+
+
+def pause(reason):
+    _state["paused"] = True
+    _state["paused_at"] = datetime.now(timezone)
+    _state["pause_reason"] = reason
+    print(f"Challonge queries paused: {reason}")
+
+
+def resume():
+    with _cache_lock:
+        _state["paused"] = False
+        _state["paused_at"] = None
+        _state["pause_reason"] = ""
+        # Start a fresh idle window so it doesn't immediately pause again.
+        _state["last_change"] = datetime.now(timezone)
+    print("Challonge queries resumed")
+
 
 def cached(key, fetch):
     # Holding the lock during fetch means simultaneous requests wait for one call instead of each making their own.
@@ -44,14 +88,23 @@ def cached(key, fetch):
         now = datetime.now(timezone)
         if hit and now - hit[0] < CACHE_TTL:
             return hit[1]
+        if not _state["paused"] and now - _state["last_change"] >= IDLE_PAUSE:
+            pause(f"No changes in Challonge data for {IDLE_PAUSE}")
+        if _state["paused"]:
+            if hit:
+                return hit[1]
+            raise QueriesPaused(f"Queries paused; no saved data for {key}")
         value = fetch()
+        _state["last_fetch"] = now
+        if not hit or hit[1] != value:
+            _state["last_change"] = now
         _cache[key] = (now, value)
         return value
 
 
 def get_all_matches(tournament_id):
-    matches = challonge.matches.index(tournament_id)
-    participants = challonge.participants.index(tournament_id)
+    matches = api(challonge.matches.index, tournament_id)
+    participants = api(challonge.participants.index, tournament_id)
     participants_dict = {p["id"]: p["name"] for p in participants}
 
     prerequisite_matches = {}
@@ -264,6 +317,63 @@ def raw_filtered_matches():
     return jsonify(filtered_matches)
 
 
+def admin_authorized():
+    auth = request.authorization
+    return bool(ADMIN_PASSWORD) and auth is not None and hmac.compare_digest(
+        (auth.password or "").encode(), ADMIN_PASSWORD.encode()
+    )
+
+
+def require_admin(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not ADMIN_PASSWORD:
+            return Response("Admin page is disabled: ADMIN_PASSWORD is not set.", 503)
+        if not admin_authorized():
+            return Response(
+                "Password required.", 401, {"WWW-Authenticate": 'Basic realm="MatchManager admin"'}
+            )
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+@app.route("/admin")
+@require_admin
+def admin():
+    now = datetime.now(timezone)
+
+    def fmt(t):
+        return t.strftime("%b %d, %I:%M:%S %p %Z") if t else "never"
+
+    idle_left = None
+    if not _state["paused"]:
+        idle_left = max(IDLE_PAUSE - (now - _state["last_change"]), timedelta(0))
+    return render_template(
+        "admin.html",
+        state=_state,
+        fmt=fmt,
+        idle_left=str(idle_left).split(".")[0] if idle_left is not None else None,
+        idle_pause=IDLE_PAUSE,
+        tournaments=tournament_ids,
+    )
+
+
+@app.route("/admin/resume", methods=["POST"])
+@require_admin
+def admin_resume():
+    resume()
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/pause", methods=["POST"])
+@require_admin
+def admin_pause():
+    with _cache_lock:
+        pause("Paused from the admin page")
+    return redirect(url_for("admin"))
+
+
 @app.route("/styles.css")
 def static_file():
     return app.send_static_file("styles.css")
@@ -330,7 +440,7 @@ def generate_json_from_matches_by_state(state_filter):
     json_data = []
     for tid in tournament_ids:
         try:
-            tournament = cached(("tournament", tid), lambda: challonge.tournaments.show(tid))
+            tournament = cached(("tournament", tid), lambda: api(challonge.tournaments.show, tid))
             if not tournament:
                 print(f"Tournament {tid} not found")
                 continue
