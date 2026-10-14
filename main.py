@@ -1,36 +1,104 @@
 import hmac
 import json
 import os
+import re
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
 from itertools import chain, zip_longest
 from operator import itemgetter
+from urllib.parse import urlparse
 
 import challonge
 import pytz
+import requests
 from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = [ "PongsTestTournament01"]
-
-# Map each vsbar ring number to the tournament IDs that run on it.
-# Update this when the tournament list changes.
-RING_TOURNAMENTS = {
-    1: ["PongsTestTournament01"],
-}
 UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
 challonge.set_credentials(UserName, APIKey)
 
-# Warn at startup if any ring is pointed at a tournament that isn't being fetched.
-for _ring, _slugs in RING_TOURNAMENTS.items():
-    for _slug in _slugs:
-        if _slug not in tournament_ids:
-            print(f"WARNING: Ring {_ring} references '{_slug}', which is not in tournament_ids. That ring will never show its matches.")
+# Tournaments and their vsbar rings are managed from /admin and saved as a JSON file in
+# Cloud Storage (CONFIG_BUCKET) so they survive restarts. Without CONFIG_BUCKET (local runs)
+# they live in memory only and start from DEFAULT_TOURNAMENTS.
+DEFAULT_TOURNAMENTS = [{"slug": "PongsTestTournament01", "ring": 1, "name": ""}]
+CONFIG_BUCKET = os.environ.get("CONFIG_BUCKET", "")
+CONFIG_OBJECT = "tournaments.json"
+GCS_TOKEN_URL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+tournaments = []  # [{"slug": ..., "ring": int or None, "name": ...}], in display order
+tournament_ids = []
+RING_TOURNAMENTS = {}  # vsbar ring number -> tournament slugs on that ring
+config_error = ""
+_config_lock = threading.Lock()
+
+
+def _gcs_headers():
+    token = requests.get(GCS_TOKEN_URL, headers={"Metadata-Flavor": "Google"}, timeout=5).json()
+    return {"Authorization": f"Bearer {token['access_token']}"}
+
+
+def _gcs_read():
+    """Return the saved tournament list, or None if nothing has been saved yet."""
+    r = requests.get(
+        f"https://storage.googleapis.com/storage/v1/b/{CONFIG_BUCKET}/o/{CONFIG_OBJECT}",
+        params={"alt": "media"}, headers=_gcs_headers(), timeout=10,
+    )
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.json()
+
+
+def _gcs_write(data):
+    requests.post(
+        f"https://storage.googleapis.com/upload/storage/v1/b/{CONFIG_BUCKET}/o",
+        params={"uploadType": "media", "name": CONFIG_OBJECT},
+        headers={**_gcs_headers(), "Content-Type": "application/json"},
+        data=json.dumps(data, indent=2), timeout=10,
+    ).raise_for_status()
+
+
+def set_tournaments(new, save=True):
+    """Replace the tournament list. Saves first, so a failed save leaves things as they were."""
+    global tournaments, tournament_ids, RING_TOURNAMENTS
+    if save and CONFIG_BUCKET:
+        _gcs_write(new)
+    rings = {}
+    for t in new:
+        if t.get("ring"):
+            rings.setdefault(t["ring"], []).append(t["slug"])
+    tournaments, tournament_ids, RING_TOURNAMENTS = new, [t["slug"] for t in new], rings
+
+
+def load_tournaments():
+    global config_error
+    data = None
+    if CONFIG_BUCKET:
+        try:
+            data = _gcs_read()
+        except Exception as e:
+            config_error = f"Couldn't load saved tournaments ({e}). Using the defaults until you change the list."
+            print(config_error)
+    set_tournaments(data if data is not None else [dict(t) for t in DEFAULT_TOURNAMENTS], save=False)
+
+
+def parse_tournament_id(text):
+    """Accept a bare Challonge ID or a tournament URL and return the API ID ('' if unrecognized)."""
+    text = text.strip().rstrip("/")
+    m = re.match(r"^(?:https?://)?([\w-]+)\.challonge\.com/(?:[a-z]{2}/)?([\w-]+)$", text)
+    if m and m.group(1) != "www":
+        return f"{m.group(1)}-{m.group(2)}"  # community/subdomain tournaments
+    m = re.match(r"^(?:https?://)?(?:www\.)?challonge\.com/(?:[a-z]{2}/)?([\w-]+)$", text)
+    if m:
+        return m.group(1)
+    return text if re.fullmatch(r"[\w-]+", text) else ""
+
+
+load_tournaments()
 
 # Every open overlay polls on its own timer; reuse Challonge responses for a few
 # seconds so N overlays don't mean N times the API calls.
@@ -346,6 +414,10 @@ def require_admin(view):
             return Response(
                 "Password required.", 401, {"WWW-Authenticate": 'Basic realm="MatchManager admin"'}
             )
+        # The browser resends the password automatically, so refuse form posts from other sites.
+        origin = request.headers.get("Origin")
+        if request.method == "POST" and origin and urlparse(origin).netloc != request.host:
+            return Response("Cross-site request refused.", 403)
         return view(*args, **kwargs)
 
     return wrapped
@@ -368,8 +440,84 @@ def admin():
         fmt=fmt,
         idle_left=str(idle_left).split(".")[0] if idle_left is not None else None,
         idle_pause=IDLE_PAUSE,
-        tournaments=tournament_ids,
+        tournaments=tournaments,
+        msg=request.args.get("msg", ""),
+        err=request.args.get("err") == "1",
+        config_error=config_error,
+        saved=bool(CONFIG_BUCKET),
     )
+
+
+def back_to_admin(msg, err=False):
+    return redirect(url_for("admin", msg=msg, err="1" if err else None))
+
+
+def parse_ring(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    if not value.isdigit() or not 1 <= int(value) <= 99:
+        raise ValueError("Ring must be a number from 1 to 99, or blank for none.")
+    return int(value)
+
+
+@app.route("/admin/tournaments/add", methods=["POST"])
+@require_admin
+def admin_add_tournament():
+    global config_error
+    slug = parse_tournament_id(request.form.get("tournament", ""))
+    if not slug:
+        return back_to_admin("Enter a Challonge tournament ID or URL.", err=True)
+    try:
+        ring = parse_ring(request.form.get("ring"))
+    except ValueError as e:
+        return back_to_admin(str(e), err=True)
+    if slug in tournament_ids:
+        return back_to_admin(f"{slug} is already on the list.", err=True)
+    # One Challonge call to catch typos and get the tournament's name.
+    try:
+        info = api(challonge.tournaments.show, slug)
+    except Exception as e:
+        return back_to_admin(f"Challonge couldn't find {slug}: {e}", err=True)
+    with _config_lock:
+        try:
+            set_tournaments(tournaments + [{"slug": slug, "ring": ring, "name": info.get("name", "")}])
+        except Exception as e:
+            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
+        config_error = ""
+    return back_to_admin(f"Added {info.get('name') or slug}.")
+
+
+@app.route("/admin/tournaments/ring", methods=["POST"])
+@require_admin
+def admin_set_ring():
+    slug = request.form.get("slug", "")
+    try:
+        ring = parse_ring(request.form.get("ring"))
+    except ValueError as e:
+        return back_to_admin(str(e), err=True)
+    with _config_lock:
+        new = [dict(t, ring=ring) if t["slug"] == slug else t for t in tournaments]
+        try:
+            set_tournaments(new)
+        except Exception as e:
+            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
+    return back_to_admin(f"{slug} is now on {'ring ' + str(ring) if ring else 'no ring'}.")
+
+
+@app.route("/admin/tournaments/remove", methods=["POST"])
+@require_admin
+def admin_remove_tournament():
+    slug = request.form.get("slug", "")
+    with _config_lock:
+        try:
+            set_tournaments([t for t in tournaments if t["slug"] != slug])
+        except Exception as e:
+            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
+    with _cache_lock:
+        _cache.pop(("tournament", slug), None)
+        _cache.pop(("matches", slug), None)
+    return back_to_admin(f"Removed {slug}.")
 
 
 @app.route("/admin/resume", methods=["POST"])
