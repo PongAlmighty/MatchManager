@@ -11,6 +11,7 @@
 </head>
 
 <body class="page-body">
+    <div id="paused-dot" class="paused-dot{{ " on" if queries_paused }}" title="Challonge queries paused"></div>
    <!-- <div class="roundedRec"> <!-- for rounded rectangle in the background... comment this and it's /div if not needed -->
       <span class="title">Upcoming Matches</span><br>
       <span class="subtitle">(All times approx.)</span>
@@ -47,8 +48,9 @@
             error: function(){
               update_scoreboard([]);
             },
-            success: function(player_list){
+            success: function(player_list, status, xhr){
               update_scoreboard(player_list);
+              $('#paused-dot').toggleClass('on', xhr.getResponseHeader('X-Queries-Paused') === '1');
             },
           });
       };

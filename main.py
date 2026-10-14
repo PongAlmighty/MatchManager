@@ -317,6 +317,19 @@ def raw_filtered_matches():
     return jsonify(filtered_matches)
 
 
+@app.context_processor
+def inject_paused():
+    # Server-rendered pages show the red paused dot from this.
+    return {"queries_paused": _state["paused"]}
+
+
+@app.after_request
+def add_paused_header(response):
+    # Polling pages read this to show or hide the red paused dot without reloading.
+    response.headers["X-Queries-Paused"] = "1" if _state["paused"] else "0"
+    return response
+
+
 def admin_authorized():
     auth = request.authorization
     return bool(ADMIN_PASSWORD) and auth is not None and hmac.compare_digest(

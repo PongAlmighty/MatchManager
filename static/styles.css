@@ -212,3 +212,20 @@
   font-weight: 900;
   font-style: normal;
 }
+/* Red dot at the top center while Challonge queries are paused (see /admin). */
+.paused-dot {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ff0000;
+    z-index: 1000;
+}
+
+.paused-dot.on {
+    display: block;
+}
