@@ -12,12 +12,12 @@ app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
-tournament_ids = [ "https://challonge.com/PongsTestTournament01"]
+tournament_ids = [ "PongsTestTournament01"]
 
 # Map each vsbar ring number to the tournament IDs that run on it.
 # Update this when the tournament list changes.
 RING_TOURNAMENTS = {
-    1: ["https://challonge.com/PongsTestTournament01"],
+    1: ["PongsTestTournament01"],
 }
 UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
