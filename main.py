@@ -41,7 +41,7 @@ _cache_lock = threading.Lock()
 # Quota guard: if no Challonge data has changed for IDLE_PAUSE, stop calling Challonge
 # and keep serving the last data until someone resumes from /admin.
 # This lives in memory, so a fresh Cloud Run instance always starts active.
-IDLE_PAUSE = timedelta(hours=2)
+IDLE_PAUSE = timedelta(hours=1)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 _state = {
     "paused": False,
