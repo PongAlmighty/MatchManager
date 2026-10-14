@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from datetime import datetime, timedelta
 from itertools import chain, zip_longest
 from operator import itemgetter
@@ -28,6 +29,24 @@ for _ring, _slugs in RING_TOURNAMENTS.items():
     for _slug in _slugs:
         if _slug not in tournament_ids:
             print(f"WARNING: Ring {_ring} references '{_slug}', which is not in tournament_ids. That ring will never show its matches.")
+
+# Every open overlay polls on its own timer; reuse Challonge responses for a few
+# seconds so N overlays don't mean N times the API calls.
+CACHE_TTL = timedelta(seconds=10)
+_cache = {}
+_cache_lock = threading.Lock()
+
+
+def cached(key, fetch):
+    # Holding the lock during fetch means simultaneous requests wait for one call instead of each making their own.
+    with _cache_lock:
+        hit = _cache.get(key)
+        now = datetime.now(timezone)
+        if hit and now - hit[0] < CACHE_TTL:
+            return hit[1]
+        value = fetch()
+        _cache[key] = (now, value)
+        return value
 
 
 def get_all_matches(tournament_id):
@@ -311,12 +330,13 @@ def generate_json_from_matches_by_state(state_filter):
     json_data = []
     for tid in tournament_ids:
         try:
-            tournament = challonge.tournaments.show(tid)
+            tournament = cached(("tournament", tid), lambda: challonge.tournaments.show(tid))
             if not tournament:
                 print(f"Tournament {tid} not found")
                 continue
 
-            matches = get_all_matches(tid)
+            # Copy each match so the tags added below don't touch the cached data.
+            matches = [dict(m) for m in cached(("matches", tid), lambda: get_all_matches(tid))]
             if not matches:
                 print(f"No matches found for tournament {tid}")
                 continue

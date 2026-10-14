@@ -1,0 +1,8 @@
+.git
+.agents
+.env
+__pycache__/
+attached_assets/
+*.json
+*.png
+Test.py
