@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ tournament_name }} · story screen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        html, body { margin: 0; padding: 0; overflow: hidden; background: {{ background }}; }
+        #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; font-family: 'Inter', Arial, sans-serif; background: {{ background }}; }
+        .sb { position: absolute; box-sizing: border-box; display: flex; align-items: center; gap: 10px; }
+        .sb-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sb-extra { white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <div id="stage"></div>
+    <script src="{{ url_for('static', filename='js/story_screen.js') }}"></script>
+    <script>
+        StoryScreen.start(document.getElementById('stage'), {{ data_url | tojson }}, {{ refresh_ms }});
+    </script>
+</body>
+</html>

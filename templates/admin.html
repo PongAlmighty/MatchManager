@@ -37,6 +37,9 @@
         .msg { padding: 8px 12px; border-radius: 6px; font-size: 14px; }
         .msg.good { background: #dcfce7; color: #14532d; }
         .msg.bad { background: #fee2e2; color: #7f1d1d; }
+        form.screen { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid #e4e4e7; }
+        form.screen label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #52525b; }
+        select { font-size: 15px; padding: 7px 9px; border: 1px solid #d4d4d8; border-radius: 6px; max-width: 100%; }
     </style>
 </head>
 <body>
@@ -111,6 +114,48 @@
         <p class="note">Adding checks the tournament with Challonge (1 API request).
             {% if not saved %}Changes are not saved on this server and will reset on restart.{% endif %}</p>
     </div>
+
+    {% if tournaments %}
+    <div class="card">
+        <h2>Story screens</h2>
+        <p class="note">OBS browser source, 1920×1080. The plain link shows whatever you pick here; add
+            <code>/overview</code>, <code>/upset</code> or <code>/elimination</code> to lock it to one screen.</p>
+        {% for t in tournaments %}
+        {% set opts = screen_options[t.slug] %}
+        <form class="screen" method="post" action="{{ url_for('admin_set_screen') }}">
+            <input type="hidden" name="slug" value="{{ t.slug }}">
+            <strong>{{ t.name or t.slug }}</strong><br>
+            <a class="note" href="{{ url_for('story_screen', slug=t.slug) }}" target="_blank">{{ url_for('story_screen', slug=t.slug, _external=True) }}</a>
+            <label>Showing
+                <select name="screen_mode" onchange="this.form.submit()">
+                    {% for m in screen_modes %}
+                    <option value="{{ m }}" {{ 'selected' if (t.screen_mode or 'overview') == m }}>{{ {'overview': 'Overview', 'upset': 'Upset watch', 'elimination': 'Elimination match'}[m] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% for key, title, auto_key in [('pinned_upset', 'Upset match', 'auto_upset'), ('pinned_elimination', 'Elimination match', 'auto_elimination')] %}
+            {% if opts %}
+            {% set auto = opts.matches | selectattr('id', 'equalto', opts[auto_key]) | first %}
+            <label>{{ title }}
+                <select name="{{ key }}" onchange="this.form.submit()">
+                    <option value="">Auto{{ ' (' ~ auto.label ~ ')' if auto else ' (nothing ready)' }}</option>
+                    {% for m in opts.matches %}
+                    <option value="{{ m.id }}" {{ 'selected' if t[key] == m.id }}>{{ m.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% else %}
+            <input type="hidden" name="{{ key }}" value="{{ t[key] or '' }}">
+            {% endif %}
+            {% endfor %}
+            {% if not opts %}
+            <p class="note">Match choices show up once an overlay or story screen has loaded this tournament
+                {%- if t.pinned_upset or t.pinned_elimination %} (a match is pinned){% endif %}.</p>
+            {% endif %}
+        </form>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <p class="note">Auto-pause after {{ idle_pause }} with no changes. This page refreshes every 30 seconds.
         Counts reset when the server restarts, and a restarted server starts with queries active.</p>

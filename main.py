@@ -12,7 +12,9 @@ from urllib.parse import urlparse
 import challonge
 import pytz
 import requests
-from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
+
+from story import SCREEN_MODES, build_screen_data, ready_match_options
 
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
@@ -170,9 +172,24 @@ def cached(key, fetch):
         return value
 
 
-def get_all_matches(tournament_id):
-    matches = api(challonge.matches.index, tournament_id)
-    participants = api(challonge.participants.index, tournament_id)
+def peek(key):
+    """Return whatever is cached for key, however old, without calling Challonge."""
+    with _cache_lock:
+        hit = _cache.get(key)
+    return hit[1] if hit else None
+
+
+def fetch_bracket(tournament_id):
+    """Every match and participant, as Challonge returns them. The overlays and story screens share this."""
+    return {
+        "matches": api(challonge.matches.index, tournament_id),
+        "participants": api(challonge.participants.index, tournament_id),
+    }
+
+
+def get_all_matches(bracket):
+    matches = bracket["matches"]
+    participants = bracket["participants"]
     participants_dict = {p["id"]: p["name"] for p in participants}
 
     prerequisite_matches = {}
@@ -441,6 +458,8 @@ def admin():
         idle_left=str(idle_left).split(".")[0] if idle_left is not None else None,
         idle_pause=IDLE_PAUSE,
         tournaments=tournaments,
+        screen_modes=SCREEN_MODES,
+        screen_options={t["slug"]: screen_options(t["slug"]) for t in tournaments},
         msg=request.args.get("msg", ""),
         err=request.args.get("err") == "1",
         config_error=config_error,
@@ -516,7 +535,7 @@ def admin_remove_tournament():
             return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
     with _cache_lock:
         _cache.pop(("tournament", slug), None)
-        _cache.pop(("matches", slug), None)
+        _cache.pop(("bracket", slug), None)
     return back_to_admin(f"Removed {slug}.")
 
 
@@ -533,6 +552,78 @@ def admin_pause():
     with _cache_lock:
         pause("Paused from the admin page")
     return redirect(url_for("admin"))
+
+
+@app.route("/admin/tournaments/screen", methods=["POST"])
+@require_admin
+def admin_set_screen():
+    slug = request.form.get("slug", "")
+    mode = request.form.get("screen_mode", "overview")
+    if mode not in SCREEN_MODES:
+        return back_to_admin(f"Unknown story screen {mode}.", err=True)
+    pins = {}
+    for key in ("pinned_upset", "pinned_elimination"):
+        value = request.form.get(key, "").strip()
+        if value and not value.isdigit():
+            return back_to_admin("Pick a match from the list.", err=True)
+        pins[key] = int(value) if value else None
+    with _config_lock:
+        new = [dict(t, screen_mode=mode, **pins) if t["slug"] == slug else t for t in tournaments]
+        try:
+            set_tournaments(new)
+        except Exception as e:
+            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
+    return back_to_admin(f"{slug} story screen: {mode}.")
+
+
+def screen_options(slug):
+    """Pin choices for the admin page, from cached data only, so the admin page never spends quota."""
+    info, bracket = peek(("tournament", slug)), peek(("bracket", slug))
+    if not info or not bracket:
+        return None
+    try:
+        return ready_match_options(bracket["matches"], bracket["participants"], info.get("tournament_type"))
+    except Exception as e:
+        print(f"Couldn't list story screen matches for {slug}: {e}")
+        return None
+
+
+def screen_tournament(slug):
+    """The tournament config for a story screen; only tournaments on the admin list can be shown."""
+    t = next((t for t in tournaments if t["slug"] == slug), None)
+    if t is None:
+        abort(404)
+    return t
+
+
+@app.route("/screen/<slug>")
+@app.route("/screen/<slug>/<mode>")
+def story_screen(slug, mode=None):
+    """OBS browser source for the story screens. Without a mode it follows the admin page."""
+    t = screen_tournament(slug)
+    if mode is not None and mode not in SCREEN_MODES:
+        abort(404)
+    data_url = url_for("story_screen_data", slug=slug, mode=mode)
+    return render_template("story_screen.html", tournament_name=t.get("name") or slug,
+                           background="#00ff00", data_url=data_url, refresh_ms=30000)
+
+
+@app.route("/screen/<slug>/data")
+def story_screen_data(slug):
+    t = screen_tournament(slug)
+    mode = request.args.get("mode") or t.get("screen_mode") or "overview"
+    if mode not in SCREEN_MODES:
+        mode = "overview"
+    pinned = t.get("pinned_upset") if mode == "upset" else t.get("pinned_elimination")
+    try:
+        info = cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug))
+        bracket = cached(("bracket", slug), lambda: fetch_bracket(slug))
+        return jsonify(build_screen_data(info.get("name") or t.get("name") or slug, bracket["matches"],
+                                         bracket["participants"], info.get("tournament_type"), mode,
+                                         pinned_match_id=pinned))
+    except Exception as e:
+        print(f"Failed to build story screen for {slug}: {e}")
+        return jsonify({"error": str(e)}), 503
 
 
 @app.route("/styles.css")
@@ -607,7 +698,8 @@ def generate_json_from_matches_by_state(state_filter):
                 continue
 
             # Copy each match so the tags added below don't touch the cached data.
-            matches = [dict(m) for m in cached(("matches", tid), lambda: get_all_matches(tid))]
+            bracket = cached(("bracket", tid), lambda: fetch_bracket(tid))
+            matches = [dict(m) for m in get_all_matches(bracket)]
             if not matches:
                 print(f"No matches found for tournament {tid}")
                 continue
