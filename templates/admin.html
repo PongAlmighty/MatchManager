@@ -91,7 +91,7 @@
 
         .panel { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 16px; border-radius: 14px; background: var(--sunk); border: 1px solid var(--line); }
         .panel h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
-        .grid-head, .colour-row { display: grid; grid-template-columns: minmax(140px, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; align-items: center; }
+        .grid-head, .colour-row { display: grid; grid-template-columns: minmax(140px, 2fr) repeat(3, minmax(0, 1fr)) 32px; gap: 12px; align-items: center; }
         .grid-head { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; }
         .colour-row { padding: 6px 0; border-top: 1px solid #1F242E; }
         .swatch { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -152,7 +152,7 @@
 
         <section class="panel" id="colours-panel">
             <h2>Bracket colours</h2>
-            <div class="grid-head"><span>Tournament</span><span>Background</span><span>Title</span><span>Round header</span></div>
+            <div class="grid-head"><span>Tournament</span><span>Background</span><span>Title</span><span>Round header</span><span></span></div>
             <div id="colours"></div>
         </section>
 
@@ -298,6 +298,12 @@
         return `${Math.floor(age / 3600)} h ago`;
     }
 
+    function removeTournament(t) {
+        if (confirm(`Remove ${t.name}? It comes off the switcher, the VS bars and the bracket list, and its bracket URL stops working.`)) {
+            post('remove', { slug: t.slug });
+        }
+    }
+
     function row(t, i, all) {
         const isLive = state.live && state.live.slug === t.slug;
         const started = t.status === 'In progress';
@@ -322,7 +328,7 @@
                                          onchange: e => post('ring', { slug: t.slug, ring: e.target.value }) }))))),
             h('div', { class: 'screens' }, SCREENS.map(([mode, label]) => tile(t, mode, label))),
             h('button', { type: 'button', class: 'icon remove', html: ICONS.x, 'aria-label': `Remove ${t.name}`,
-                          onclick: () => { if (confirm(`Remove ${t.name} from the overlays?`)) post('remove', { slug: t.slug }); } }));
+                          onclick: () => removeTournament(t) }));
     }
 
     function colourRow(t) {
@@ -334,7 +340,9 @@
                     h('input', { type: 'color', value: value.toLowerCase(), 'aria-label': `${label} colour for ${t.name}`,
                                  onchange: e => post('display', { slug: t.slug, key, value: e.target.value }) }),
                     h('span', { class: 'mono muted' }, value));
-            }));
+            }),
+            h('button', { type: 'button', class: 'icon', html: ICONS.x, 'aria-label': `Remove ${t.name}`,
+                          title: 'Remove this tournament', onclick: () => removeTournament(t) }));
     }
 
     function urlRow(path, label) {
