@@ -82,11 +82,13 @@
       if (last) band(last[0], last[1], 40, MX, my, 48, colorOf(r.seed));
     });
 
-    [[s.win, 216, 264], [s.lose, 346, 318]].forEach(([d, y, from]) => {
+    // Both outcome ribbons fork from the pair as a whole (both Now boxes, y 264-366), so neither
+    // robot is drawn heading to WINNER or LOSER.
+    [[s.win, 216], [s.lose, 346]].forEach(([d, y]) => {
       box(DX, y, DW, 26, { text: d[0], fs: 13, justify: 'flex-start', radius: '6px 6px 0 0' });
       tbd(DX, y + 26, DW, 48, d[1], { fs: 22, fw: 700, fg: '#ffffff', radius: '0' });
       tbd(DX, y + 74, DW, 30, d[2], { fs: 15, radius: '0 0 6px 6px' });
-      band(MX + MW, from, 48, DX, y + 26, 48, '#2c2c2c');
+      band(MX + MW, 264, 102, DX, y + 26, 48, '#2c2c2c');
     });
 
     [[s.a, 40], [s.b, 980]].forEach(([r, x]) => {
