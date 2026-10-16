@@ -12,11 +12,13 @@ from urllib.parse import urlparse
 import challonge
 import pytz
 import requests
-from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, jsonify, render_template, request, url_for
 
+from bracket_view import build_bracket_data
 from story import SCREEN_MODES, build_screen_data, describe_match, match_choices
 
 app = Flask(__name__)
+app.jinja_env.add_extension("jinja2.ext.do")  # the bracket template uses {% do %}
 NEXT_MATCH_START = timedelta(minutes=1)
 MATCH_DELAY = timedelta(minutes=3)
 timezone = pytz.timezone("America/Los_Angeles")
@@ -861,3 +863,24 @@ def generate_json_from_matches_by_state(state_filter):
         match_start += MATCH_DELAY
 
     return jsonify(json_data)
+
+
+# Registered last and matched only after every named route, so /admin, /live, /vsbar... always win.
+# Adding a tournament refuses IDs that would clash (reserved_slugs).
+@app.route("/<slug>")
+def bracket(slug):
+    """OBS browser source for one tournament's bracket, at the same path Brackinator used."""
+    t = next((t for t in tournaments if t["slug"] == slug), None)
+    if t is None:
+        abort(404)
+    display = {**DEFAULT_DISPLAY, **t.get("display", {})}
+    name = t.get("name") or slug
+    try:
+        info = cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug))
+        bracket_data = cached(("bracket", slug), lambda: fetch_bracket(slug))
+        data = build_bracket_data(info.get("name") or name, slug, display, info,
+                                  bracket_data["matches"], bracket_data["participants"])
+    except Exception as e:
+        print(f"Failed to build the bracket for {slug}: {e}")
+        data = {"error": str(e), "tournament_name": name, "slug": slug, **display}
+    return render_template("tournament.html", data=data)

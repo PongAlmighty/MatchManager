@@ -1,0 +1,47 @@
+{% set match_classes = ['match-container'] %}
+{% if match.underway_at %}
+    {% do match_classes.append('match-underway') %}
+{% endif %}
+<div class="{{ match_classes | join(' ') }}"
+     data-match-id="{{ match.id }}"
+     {% if match.feeds_into_match_id %}
+         data-feeds-into-match-id="{{ match.feeds_into_match_id }}"
+     {% endif %}
+     {% if match.has_outgoing_line and match.winner_id %}
+         data-has-outgoing-line="True"
+         data-winner-id="{{ match.winner_id }}"
+         data-line-style="{{ match.line_style }}"
+     {% endif %}>
+    
+    {# Player 1 #}
+    {% set p1_data = match.player1 %}
+    <div class="player-box{% if p1_data.is_tbd %} tbd-player{% endif %}"
+         {% if p1_data and p1_data.id is not none %}data-participant-id="{{ p1_data.id }}"{% endif %}
+         {% if p1_data.is_tbd and p1_data.fed_by_match_id %}data-fed-by-match-id="{{ p1_data.fed_by_match_id }}"{% endif %}>
+        <span class="player-name">
+            {% if p1_data.is_tbd %}
+                ???
+            {% elif p1_data.name %}
+                {{ p1_data.name }}
+            {% else %}
+                &nbsp;
+            {% endif %}
+        </span>
+    </div>
+    
+    {# Player 2 #}
+    {% set p2_data = match.player2 %}
+    <div class="player-box{% if p2_data.is_tbd %} tbd-player{% endif %}"
+         {% if p2_data and p2_data.id is not none %}data-participant-id="{{ p2_data.id }}"{% endif %}
+         {% if p2_data.is_tbd and p2_data.fed_by_match_id %}data-fed-by-match-id="{{ p2_data.fed_by_match_id }}"{% endif %}>
+        <span class="player-name">
+            {% if p2_data.is_tbd %}
+                ???
+            {% elif p2_data.name %}
+                {{ p2_data.name }}
+            {% else %}
+                &nbsp;
+            {% endif %}
+        </span>
+    </div>
+</div>

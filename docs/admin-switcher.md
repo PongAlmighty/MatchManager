@@ -56,4 +56,4 @@ Layout A (status strip on top) is the chosen design.
 
 ## Build notes
 
-- Brackinator port: the bracket views (double elim, round robin/Swiss, group stage, three-competitor, podium), the SVG connector script and `match_container.html`. Read from the shared `("bracket", slug)` cache instead of calling Challonge on every page load. Colours move from Brackinator's SQLite `display_settings` into tournaments.json. Enable `jinja2.ext.do`. Skip Brackinator's admin page, CORS and dead templates.
+- Brackinator port lives in `bracket_view.py` (kept close to Brackinator's code) with `templates/tournament.html` and `match_container.html`. It reads the shared `("bracket", slug)` cache instead of calling Challonge on every page load. Colours are per tournament in tournaments.json (`display`), default background chroma green `#00ff00`. Not ported: Brackinator's admin page, `/raw/<slug>`, CORS and its unused templates.

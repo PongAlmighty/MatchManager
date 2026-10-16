@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tournament Data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            color: white;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 10px;
+        }
+        
+        .bracket-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2em;
+            align-items: start;
+            margin-bottom: 1.8em;
+        }
+
+        .bracket-grid-row {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 2em;
+            align-items: start;
+            margin-bottom: 1.8em;
+        }
+
+        .bracket-grid-row .round-column {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .round-column {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .round-title {
+            font-size: 1.1em;
+            font-weight: 700;
+            margin-bottom: 0.8em;
+            text-align: center;
+            color: var(--title-text-color); /* Changed from #ccc */
+            background-color: var(--round-title-bg-color);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        
+        .round-matches {
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+        }
+        
+        .round-matches.compact {
+            gap: 0.6em;
+        }
+        
+        .match-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+            z-index: 15; /* Ensure match containers appear above connector lines */
+        }
+        
+        .round-matches.compact .match-container {
+            flex-direction: row;
+            gap: 0;
+        }
+        
+        .player-box {
+            background: #333;
+            color: white;
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-weight: 600;
+            text-align: left;
+            font-size: 0.95em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+            line-height:1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            display: flex; /* For aligning name and seed */
+            justify-content: space-between; /* Push seed to the right */
+            align-items: center;
+            position: relative;
+            z-index: 10; /* Ensure player boxes appear above SVG connector lines */
+        }
+
+        .player-box.tbd-player {
+            background: #2a2a2a; /* Slightly different background for TBD */
+            /* font-style: italic; */ /* Optional styling for TBD text if shown */
+        }
+
+        .player-name {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 1em; 
+            line-height: 1.2;
+        }
+
+        .player-seed {
+            font-size: 0.8em;
+            color: #aaa;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
+        svg#bracket-svg-connectors > path.pending-advancement-line {
+            stroke-dasharray: 5, 5; /* Dashed pattern for pending lines */
+            stroke-width: 8; /* Make lines thicker */
+            /* Color will be set dynamically by JavaScript */
+        }
+        
+        /* Higher z-index for path-related matches to bring them to front */
+        .match-path-related {
+            position: relative;
+            z-index: 10 !important;
+        }
+        
+        /* Higher z-index for path-related SVG lines */
+        svg#bracket-svg-connectors > path.path-highlight {
+            z-index: 15;
+        }
+        
+        .round-matches.compact .player-box {
+            width: 50%;
+        }
+        
+        .player-box.winner {
+            font-weight: 700;
+            background-color: #444; /* Brighter background for winners */
+        }
+        
+        .player-box.loser {
+            background-color: #222; /* Darker background for losers */
+            color: #aaa; /* Darker text for losers */
+        }
+        
+        .round-matches.compact .match-container .player-box:first-child:not(.winner):not(.loser) {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        
+        .round-matches.compact .match-container .player-box:last-child:not(.winner):not(.loser) {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        
+        .round-matches.compact .match-container .player-box.winner:first-child,
+        .round-matches.compact .match-container .player-box.loser:first-child {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        
+        .round-matches.compact .match-container .player-box.winner:last-child,
+        .round-matches.compact .match-container .player-box.loser:last-child {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        
+        .player-box.player-box-single {
+            width: 100% !important; /* Ensure full width for single player boxes */
+        }
+
+        .round-matches.compact .match-container .player-box-single {
+            border-radius: 5px !important; /* Reset border-radius for single player in compact view */
+        }
+
+        /* Specific rule for non-compact single player boxes to ensure full width */
+        .round-matches:not(.compact) .match-container .player-box.player-box-single {
+            width: 100% !important;
+        }
+
+        .match-underway {
+            background-color: gold !important;
+            /* Ensure text inside is readable on gold */
+        }
+        .match-underway .player-box {
+            color: #333 !important; /* Dark text for player names */
+            background-color: transparent !important; /* Make player box background transparent to show gold */
+            box-shadow: none !important; /* Optional: remove shadow if it clashes */
+        }
+
+        .match-path-related {
+            background-color: var(--match-highlight-color) !important; /* Lighter gray for subtle path highlighting */
+            /* Ensure text inside is readable on lighter gray */
+        }
+        .match-path-related .player-box {
+            color: #fff !important; /* White text for good contrast on gray */
+            background-color: transparent !important; /* Make player box background transparent to show gray */
+            box-shadow: none !important; /* Optional: remove shadow if it clashes */
+        }
+
+        .match-complete {
+            filter: brightness(0.5);
+        }
+        
+        .bracket-divider {
+            width: 100%;
+            border: none;
+            border-top: 2px solid #444;
+            margin: 1.5em 0;
+        }
+        
+        .error {
+            color: red;
+            font-size: 1.2em;
+            text-align: center;
+            margin: 2em;
+        }
+        
+        .podium-display {
+            margin-top: 2em;
+            padding: 1em;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background-color: #222;
+        }
+
+        .tournament-footer-name {
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 2em; /* Using the preferred 2em size */
+            font-weight: bold;
+            color: var(--round-title-bg-color); /* Use round title background for font color */
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .tournament-bracket-container {
+            position: relative; /* Establishes positioning context for the SVG canvas */
+            overflow: auto; /* Add this to help contain floated/complex children and get height */
+            /* min-height: 2000px; */ /* DIAGNOSTIC - Reverted */
+        }
+        
+        /* Three Competitor Layout Styles */
+        .three-competitor-layout {
+            display: flex;
+            gap: 3em;
+            align-items: flex-start;
+            min-height: 400px;
+        }
+        
+        .active-matches-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .ranking-section {
+            flex: 0 0 300px;
+            background-color: var(--round-title-bg-color);
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid var(--round-title-bg-color);
+        }
+        
+        .section-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-bottom: 1em;
+            text-align: center;
+            color: var(--title-text-color);
+            border-bottom: 2px solid var(--round-title-bg-color);
+            padding-bottom: 0.5em;
+        }
+        
+        .podium {
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+            background-color: var(--round-title-bg-color);
+        }
+        
+        /* Ensure inner podium rows use the same background as the ranking panel */
+        .place {
+            background-color: var(--round-title-bg-color);
+        }
+
+        /* Ensure Final Results rows use the same background as the ranking panel */
+        .ranking-item {
+            background-color: var(--round-title-bg-color);
+        }
+        
+        .podium-place {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .podium-place:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .place-first {
+            border-left-color: #FFD700; /* Gold */
+            background-color: var(--round-title-bg-color);
+        }
+        
+        .place-second {
+            border-left-color: #C0C0C0; /* Silver */
+            background-color: var(--round-title-bg-color);
+        }
+        
+        .place-third {
+            border-left-color: #CD7F32; /* Bronze */
+            background-color: var(--round-title-bg-color);
+        }
+        
+        .place-number {
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-right: 15px;
+            min-width: 40px;
+        }
+        
+        .place-first .place-number {
+            color: #FFD700;
+        }
+        
+        .place-second .place-number {
+            color: #C0C0C0;
+        }
+        
+        .place-third .place-number {
+            color: #CD7F32;
+        }
+
+        /* Preserve number colors for Final Results items */
+        .first-place .place-number { color: #FFD700; }
+        .second-place .place-number { color: #C0C0C0; }
+        .third-place .place-number { color: #CD7F32; }
+        
+        .place-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: white;
+            flex: 1;
+        }
+        
+        /* Final Results screen scoped styles (do not affect other screens) */
+        .final-results-screen .ranking-section {
+            max-width: var(--final-panel-max-width, 400px);
+            margin: 0 auto;
+            flex: none; /* override base flex sizing in this context */
+        }
+        .final-results-screen .section-title {
+            font-size: var(--final-title-size, 1.4em);
+        }
+        .final-results-screen .place-number {
+            font-size: var(--final-number-size, 1.2em);
+        }
+        .final-results-screen .place-name,
+        .final-results-screen .competitor-name {
+            font-size: var(--final-name-size, 1.1em);
+        }
+        
+        /* Hide connecting lines in three-competitor mode */
+        body:has(.three-competitor-layout) #bracket-svg-connectors {
+            display: none !important;
+        }
+        
+        /* Increase spacing between matches in three-competitor mode */
+        .three-competitor-layout .active-matches-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5em;
+        }
+        
+        .three-competitor-layout .round-column {
+            margin-bottom: 1.5em;
+        }
+        
+        /* Bracket labels for three-competitor layout */
+        .bracket-label {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--round-title-bg-color);
+            margin: 0.2em 0 0.2em 0; /* Reduced top and bottom margin */
+            text-align: left;
+            padding: 0.3em 0;
+        }
+        
+        /* Second Chance Matches Container */
+        .second-chance-matches-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1em;
+            margin-bottom: 1.5em;
+        }
+        
+        .second-chance-matches-container .match-container {
+            flex: 0 0 calc(33.333% - 1em); /* Three matches per row with gap */
+            min-width: 250px;
+            margin-bottom: 0;
+        }
+        
+        .second-chance-matches-container .player-box {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            transition: all 0.2s ease;
+        }
+        
+        .second-chance-matches-container .player-box:hover {
+            background: #3a3a3a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .second-chance-matches-container .player-name {
+            font-size: 1em; 
+            line-height: 1.2;
+        }
+        
+        .second-chance-matches-container .tbd-player {
+            background: #222;
+            font-style: italic;
+        }
+        
+        .winners-bracket-label {
+            color: var(--round-title-bg-color) !important;
+        }
+        
+        .second-chance-bracket-label {
+            color: var(--round-title-bg-color) !important;
+        }
+        
+        /* Matchup box styles */
+        .matchup-box {
+            background: #333;
+            color: white;
+            border-radius: 5px;
+            padding: 12px 16px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .match-underway .matchup-box {
+            background-color: gold !important;
+            color: #333 !important;
+        }
+        
+        .vs-text {
+            display: inline-block;
+            margin: 0 8px;
+            font-style: italic;
+            opacity: 0.8;
+        }
+        
+        /* Responsive adjustments for three-competitor layout */
+        @media (max-width: 768px) {
+            .three-competitor-layout {
+                flex-direction: column;
+                gap: 2em;
+            }
+            
+            .ranking-section {
+                flex: none;
+                width: 100%;
+            }
+        }
+    </style>
+    <style>
+        body { background-color: var(--main-bg-color); }
+        #bracket-svg-connectors {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to pass through to elements below */
+            z-index: 1; /* Lower z-index to keep connector lines behind match content */
+        }
+    </style>
+</head>
+<body style="--main-bg-color: {{ data.background_color | default('#b5d16c', true) }}; --title-text-color: {{ data.title_color | default('#FFFFFF', true) }}; --round-title-bg-color: {{ data.round_title_bg_color | default('#2C2C2C', true) }}; --path-highlight-color: #ccaa00; --match-highlight-color: #555;">
+    {% if data.error %}
+        <div class="error">Error: {{ data.error }}</div>
+    {% endif %}
+    
+    {# Tournament Complete - Show only podium centered #}
+    {% if data.is_tournament_complete %}
+        <div class="final-results-screen" style="display: flex; justify-content: center; align-items: center; min-height: 60vh; padding: 2em; background-color: var(--main-bg-color); --final-title-size: 3em; --final-number-size: 4.2em; --final-name-size: 4em; --final-panel-max-width: 800px;">
+            <div class="ranking-section">
+                <h2 class="section-title">Final Results</h2>
+                {% if data.tournament_type in ['round robin', 'round_robin', 'swiss'] and data.tournament_state != 'complete' %}
+                <div class="finalization-note" style="text-align:center; margin-top:-0.4em; margin-bottom:0.8em; color:#e6e6e6ab; font-weight:300;">Pending Finalization</div>
+                {% endif %}
+                <div class="ranking-item first-place">
+                    <span class="place-number">1st</span>
+                    <span class="competitor-name">{{ data.first_place_name if data.first_place_name else "TBD" }}</span>
+                </div>
+                <div class="ranking-item second-place">
+                    <span class="place-number">2nd</span>
+                    <span class="competitor-name">{{ data.second_place_name if data.second_place_name else "TBD" }}</span>
+                </div>
+                <div class="ranking-item third-place">
+                    <span class="place-number">3rd</span>
+                    <span class="competitor-name">{{ data.third_place_finisher_name if data.third_place_finisher_name else "TBD" }}</span>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        {# Old final stage logic completely removed - now handled by three-competitor stage #}
+    <div class="tournament-bracket-container" style="position: relative;"> <!-- Ensure this container is a positioning context for the SVG -->
+    <svg id="bracket-svg-connectors"></svg>
+
+    {# Group Stage Display - one row per round, one column per group, rows expand full width #}
+    {% if data.is_group_stage %}
+    {% for round_row in data.group_rounds %}
+    <div class="bracket-grid-row">
+        {% for col in round_row.columns %}
+        <div class="round-column">
+            <div class="round-title">Round {{ col.round }} - Group {{ col.group_label }}</div>
+            {% set current_round_matches = col.matches %}
+            {% if col.use_compact %}
+                <div class="round-matches compact">
+            {% else %}
+                <div class="round-matches">
+            {% endif %}
+            {% for match in current_round_matches %}
+                {% set match_classes = ['match-container'] %}
+                {% if match.underway_at and match.state == 'open' %}
+                    {% do match_classes.append('match-underway') %}
+                {% elif match.state == 'complete' %}
+                    {% do match_classes.append('match-complete') %}
+                {% endif %}
+                <div class="{{ match_classes | join(' ') }}"
+                     data-match-id="{{ match.id }}"
+                     {% if match.feeds_into_match_id %}
+                         data-feeds-into-match-id="{{ match.feeds_into_match_id }}"
+                     {% endif %}
+                     {% if match.has_outgoing_line and match.winner_id %}
+                         data-has-outgoing-line="True"
+                         data-winner-id="{{ match.winner_id }}"
+                         data-line-style="{{ match.line_style }}"
+                     {% endif %}>
+                    {% set p1_name_present = match.player1.name %}
+                    {% set p2_name_present = match.player2.name %}
+                    {% if p1_name_present and not p2_name_present %}
+                        {% set player_class = "player-box player-box-single" %}
+                        {% if match.state == 'complete' and match.winner_id == match.player1.id %}
+                            {% set player_class = player_class ~ " winner" %}
+                        {% elif match.state == 'complete' and match.loser_id == match.player1.id %}
+                            {% set player_class = player_class ~ " loser" %}
+                        {% endif %}
+                        {% set player_data = match.player1 %}
+                        <div class="{{ player_class }}{% if player_data.is_tbd %} tbd-player{% endif %}"
+                             {% if player_data and player_data.id is not none %}data-participant-id="{{ player_data.id }}"{% endif %}
+                             {% if player_data.is_tbd and player_data.fed_by_match_id %}data-fed-by-match-id="{{ player_data.fed_by_match_id }}"{% endif %}>
+                            <span class="player-name">
+                                {% if player_data.is_tbd %}
+                                    {% if player_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ player_data.name }}{% endif %}
+                                {% else %}
+                                    {{ player_data.name }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% elif p2_name_present and not p1_name_present %}
+                        {% set player_class = "player-box player-box-single" %}
+                        {% if match.state == 'complete' and match.winner_id == match.player2.id %}
+                            {% set player_class = player_class ~ " winner" %}
+                        {% elif match.state == 'complete' and match.loser_id == match.player2.id %}
+                            {% set player_class = player_class ~ " loser" %}
+                        {% endif %}
+                        {% set player_data = match.player2 %}
+                        <div class="{{ player_class }}{% if player_data.is_tbd %} tbd-player{% endif %}"
+                             {% if player_data and player_data.id is not none %}data-participant-id="{{ player_data.id }}"{% endif %}
+                             {% if player_data.is_tbd and player_data.fed_by_match_id %}data-fed-by-match-id="{{ player_data.fed_by_match_id }}"{% endif %}>
+                            <span class="player-name">
+                                {% if player_data.is_tbd %}
+                                    {% if player_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ player_data.name }}{% endif %}
+                                {% else %}
+                                    {{ player_data.name }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% else %}
+                        {% set player1_class = "player-box" %}
+                        {% set player2_class = "player-box" %}
+                        {% set p1_data = match.player1 %}
+                        {% set p2_data = match.player2 %}
+                        {% if match.state == 'complete' and match.winner_id == p1_data.id %}
+                            {% set player1_class = player1_class ~ " winner" %}
+                            {% set player2_class = player2_class ~ " loser" %}
+                        {% elif match.state == 'complete' and match.winner_id == p2_data.id %}
+                            {% set player1_class = player1_class ~ " loser" %}
+                            {% set player2_class = player2_class ~ " winner" %}
+                        {% endif %}
+                        <div class="{{ player1_class }}{% if p1_data.is_tbd %} tbd-player{% endif %}"
+                             {% if p1_data and p1_data.id is not none %}data-participant-id="{{ p1_data.id }}"{% endif %}
+                             {% if p1_data.is_tbd and p1_data.fed_by_match_id %}data-fed-by-match-id="{{ p1_data.fed_by_match_id }}"{% endif %}>
+                            <span class="player-name">
+                                {% if p1_data.is_tbd %}
+                                    {% if p1_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ p1_data.name }}{% endif %}
+                                {% elif p1_data.name %}
+                                    {{ p1_data.name }}
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="{{ player2_class }}{% if p2_data.is_tbd %} tbd-player{% endif %}"
+                             {% if p2_data and p2_data.id is not none %}data-participant-id="{{ p2_data.id }}"{% endif %}
+                             {% if p2_data.is_tbd and p2_data.fed_by_match_id %}data-fed-by-match-id="{{ p2_data.fed_by_match_id }}"{% endif %}>
+                            <span class="player-name">
+                                {% if p2_data.is_tbd %}
+                                    {% if p2_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ p2_data.name }}{% endif %}
+                                {% elif p2_data.name %}
+                                    {{ p2_data.name }}
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            </div> {# close .round-matches or .compact #}
+        </div> {# close .round-column #}
+        {% endfor %}
+    </div> {# close .bracket-grid-row #}
+    {% endfor %}
+
+    {# Three Competitor Stage - Show only active rounds on left, ranking on right #}
+    {% elif data.is_three_competitor_stage %}
+        <div class="three-competitor-layout">
+            <div class="active-matches-section">
+                <h2 class="section-title">Active Matches</h2>
+                
+                {# Winner's Bracket Label #}
+                <div class="bracket-label winners-bracket-label">Winner's Bracket</div>
+                
+                {# Show winners rounds with open or pending matches #}
+                {% for round_num in data.winner_rounds_ordered %}
+                    {% set current_round_matches = data.winner_matches_by_round[round_num] %}
+                    {% set has_active_matches = current_round_matches | selectattr('state', 'in', ['open', 'pending']) | list | length > 0 %}
+                    {% if has_active_matches %}
+                        <div class="round-column">
+                            <div class="round-matches">
+                                {% for match in current_round_matches %}
+                                    {% if match.state in ['open', 'pending'] %}
+                                        {% include 'match_container.html' %}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                
+                {# Second Chance Bracket Label — only for double elimination #}
+                {% if data.second_chance_matches %}
+                <div class="bracket-label second-chance-bracket-label">Second Chance Bracket</div>
+
+                <div class="second-chance-matches-container">
+                    {% for match in data.second_chance_matches %}
+                        {% include 'match_container.html' %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="ranking-section">
+                <h2 class="section-title">Tournament Ranking</h2>
+                {% if data.tournament_type in ['round robin', 'round_robin', 'swiss'] and data.tournament_state != 'complete' %}
+                <div class="finalization-note" style="text-align:center; margin-top:-0.4em; margin-bottom:0.8em; color:#e6e6e6; font-weight:600;">Not Finalized</div>
+                {% endif %}
+                <div class="podium">
+                    <div class="place place-first">
+                        <div class="place-label">1st</div>
+                        <div class="place-name">{{ data.first_place_name or 'TBD' }}</div>
+                    </div>
+                    <div class="place place-second">
+                        <div class="place-label">2nd</div>
+                        <div class="place-name">{{ data.second_place_name or 'TBD' }}</div>
+                    </div>
+                    <div class="place place-third">
+                        <div class="place-label">3rd</div>
+                        <div class="place-name">{{ data.third_place_finisher_name or 'TBD' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        {# Normal bracket display for non-three-competitor scenarios #}
+        {# Winners Bracket #}
+        <div class="bracket-grid">
+            {% for round_num in data.winner_rounds_ordered %}
+            <div class="round-column">
+                {% if round_num == 999 %}
+                    <div class="round-title">Grand Final</div>
+                {% else %}
+                    <div class="round-title">{% if data.tournament_type == 'double elimination' %}Winners {% endif %}Round {{ round_num }}</div>
+                {% endif %}
+                {% set current_round_matches = data.winner_matches_by_round[round_num] %}
+                {% set player_count = current_round_matches | length * 2 %}
+                {% if data.tournament_type == 'double elimination' and player_count >= 12 %}
+                    <div class="round-matches compact">
+                {% else %}
+                    <div class="round-matches">
+                {% endif %}
+                {% for match in current_round_matches %}
+                    {% set match_classes = ['match-container'] %}
+                    {% if match.underway_at and match.state == 'open' %}
+                        {% do match_classes.append('match-underway') %}
+                    {% elif match.state == 'complete' %}
+                        {% do match_classes.append('match-complete') %}
+                    {% endif %}
+                    <div class="{{ match_classes | join(' ') }}"
+                         data-match-id="{{ match.id }}"
+                         {% if match.feeds_into_match_id %}
+                             data-feeds-into-match-id="{{ match.feeds_into_match_id }}"
+                         {% endif %}
+                         {% if match.has_outgoing_line and match.winner_id %}
+                             data-has-outgoing-line="True"
+                             data-winner-id="{{ match.winner_id }}"
+                             data-line-style="{{ match.line_style }}"
+                         {% endif %}>
+                        {% set p1_name_present = match.player1.name %}
+                        {% set p2_name_present = match.player2.name %}
+                        {% if p1_name_present and not p2_name_present %}
+                            {# Only Player 1 is present #}
+                            {% set player_class = "player-box player-box-single" %}
+                            {% if match.state == 'complete' and match.winner_id == match.player1.id %}
+                                {% set player_class = player_class ~ " winner" %}
+                            {% elif match.state == 'complete' and match.loser_id == match.player1.id %}
+                                {% set player_class = player_class ~ " loser" %}
+                            {% endif %}
+                            {% set player_data = match.player1 %}
+                            <div class="{{ player_class }}{% if player_data.is_tbd %} tbd-player{% endif %}"
+                                 {% if player_data and player_data.id is not none %}data-participant-id="{{ player_data.id }}"{% endif %}
+                                 {% if player_data.is_tbd and player_data.fed_by_match_id %}data-fed-by-match-id="{{ player_data.fed_by_match_id }}"{% endif %}>
+                                <span class="player-name">
+                                    {% if player_data.is_tbd %}
+                                        {% if player_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ player_data.name }}{% endif %}
+                                    {% else %}
+                                        {{ player_data.name }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% elif p2_name_present and not p1_name_present %}
+                            {# Only Player 2 is present #}
+                            {% set player_class = "player-box player-box-single" %}
+                            {% if match.state == 'complete' and match.winner_id == match.player2.id %}
+                                {% set player_class = player_class ~ " winner" %}
+                            {% elif match.state == 'complete' and match.loser_id == match.player2.id %}
+                                {% set player_class = player_class ~ " loser" %}
+                            {% endif %}
+                            {% set player_data = match.player2 %}
+                            <div class="{{ player_class }}{% if player_data.is_tbd %} tbd-player{% endif %}"
+                                 {% if player_data and player_data.id is not none %}data-participant-id="{{ player_data.id }}"{% endif %}
+                                 {% if player_data.is_tbd and player_data.fed_by_match_id %}data-fed-by-match-id="{{ player_data.fed_by_match_id }}"{% endif %}>
+                                <span class="player-name">
+                                    {% if player_data.is_tbd %}
+                                        {% if player_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ player_data.name }}{% endif %}
+                                    {% else %}
+                                        {{ player_data.name }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% else %}
+                            {# Both players present or both missing #}
+                            {% set player1_class = "player-box" %}
+                            {% set player2_class = "player-box" %}
+                            {% set p1_data = match.player1 %}
+                            {% set p2_data = match.player2 %}
+
+                            {% if match.state == 'complete' and match.winner_id == p1_data.id %}
+                                {% set player1_class = player1_class ~ " winner" %}
+                                {% set player2_class = player2_class ~ " loser" %}
+                            {% elif match.state == 'complete' and match.winner_id == p2_data.id %}
+                                {% set player1_class = player1_class ~ " loser" %}
+                                {% set player2_class = player2_class ~ " winner" %}
+                            {% endif %}
+
+                            <div class="{{ player1_class }}{% if p1_data.is_tbd %} tbd-player{% endif %}"
+                                 {% if p1_data and p1_data.id is not none %}data-participant-id="{{ p1_data.id }}"{% endif %}
+                                 {% if p1_data.is_tbd and p1_data.fed_by_match_id %}data-fed-by-match-id="{{ p1_data.fed_by_match_id }}"{% endif %}>
+                                <span class="player-name">
+                                    {% if p1_data.is_tbd %}
+                                        {% if p1_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ p1_data.name }}{% endif %}
+                                    {% elif p1_data.name %}
+                                        {{ p1_data.name }}
+                                    {% else %}
+                                        &nbsp;
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="{{ player2_class }}{% if p2_data.is_tbd %} tbd-player{% endif %}"
+                                 {% if p2_data and p2_data.id is not none %}data-participant-id="{{ p2_data.id }}"{% endif %}
+                                 {% if p2_data.is_tbd and p2_data.fed_by_match_id %}data-fed-by-match-id="{{ p2_data.fed_by_match_id }}"{% endif %}>
+                                <span class="player-name">
+                                    {% if p2_data.is_tbd %}
+                                        {% if p2_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ p2_data.name }}{% endif %}
+                                    {% elif p2_data.name %}
+                                        {{ p2_data.name }}
+                                    {% else %}
+                                        &nbsp;
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div> {# close .round-matches or .compact #}
+            </div> {# close .round-column #}
+        {% endfor %}
+    </div> {# close .bracket-grid (winners) #}
+
+    {% if data.loser_rounds_ordered | length > 0 and not data.is_final_stage %}
+        <hr class="bracket-divider">
+        <!-- Losers Bracket -->
+        <div class="bracket-grid">
+            {% for round_num in data.loser_rounds_ordered %}
+                <div class="round-column">
+                    <div class="round-title">Losers Round {{ round_num }}</div>
+                    {% set current_round_matches = data.loser_matches_by_round[round_num] %}
+                    {% set player_count = current_round_matches | length * 2 %}
+                    {% if player_count >= 12 %}
+                        <div class="round-matches compact">
+                    {% else %}
+                        <div class="round-matches">
+                    {% endif %}
+                    {% for match in current_round_matches %}
+                        {% set match_classes = ['match-container'] %}
+                        {% if match.underway_at and match.state == 'open' %}
+                            {% do match_classes.append('match-underway') %}
+                        {% elif match.state == 'complete' %}
+                            {% do match_classes.append('match-complete') %}
+                        {% endif %}
+                        <div class="{{ match_classes | join(' ') }}"
+                              data-match-id="{{ match.id }}"
+                              data-bracket-type="losers"
+                              {% if match.feeds_into_match_id %}
+                                  data-feeds-into-match-id="{{ match.feeds_into_match_id }}"
+                              {% endif %}
+                              {% if match.has_outgoing_line and match.winner_id %}
+                                  data-has-outgoing-line="True"
+                                  data-winner-id="{{ match.winner_id }}"
+                                  data-line-style="{{ match.line_style }}"
+                              {% endif %}>
+                            {# Player rendering logic for Losers Bracket - handles TBD #}
+                            {% set player1_class = "player-box" %}
+                            {% set player2_class = "player-box" %}
+                            {% set p1_data = match.player1 %}
+                            {% set p2_data = match.player2 %}
+
+                            {% if match.state == 'complete' and match.winner_id == p1_data.id %}
+                                {% set player1_class = player1_class ~ " winner" %}
+                                {% set player2_class = player2_class ~ " loser" %}
+                            {% elif match.state == 'complete' and match.winner_id == p2_data.id %}
+                                {% set player1_class = player1_class ~ " loser" %}
+                                {% set player2_class = player2_class ~ " winner" %}
+                            {% endif %}
+
+                            <div class="{{ player1_class }}{% if p1_data.is_tbd %} tbd-player{% endif %}"
+                                 {% if p1_data and p1_data.id is not none %}data-participant-id="{{ p1_data.id }}"{% endif %}
+                                 {% if p1_data.is_tbd and p1_data.fed_by_match_id %}data-fed-by-match-id="{{ p1_data.fed_by_match_id }}"{% endif %}>
+                                <span class="player-name">
+                                    {% if p1_data.is_tbd %}
+                                        {% if p1_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ p1_data.name }}{% endif %}
+                                    {% elif p1_data.name %}
+                                        {{ p1_data.name }}
+                                    {% else %}
+                                        &nbsp;
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="{{ player2_class }}{% if p2_data.is_tbd %} tbd-player{% endif %}"
+                                 {% if p2_data and p2_data.id is not none %}data-participant-id="{{ p2_data.id }}"{% endif %}
+                                 {% if p2_data.is_tbd and p2_data.fed_by_match_id %}data-fed-by-match-id="{{ p2_data.fed_by_match_id }}"{% endif %}>
+                                <span class="player-name">
+                                    {% if p2_data.is_tbd %}
+                                        {% if p2_data.name == 'To Be Determined' %}&nbsp;{% else %}{{ p2_data.name }}{% endif %}
+                                    {% elif p2_data.name %}
+                                        {{ p2_data.name }}
+                                    {% else %}
+                                        &nbsp;
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    </div> {# close .round-matches or .compact #}
+                </div> {# close .round-column #}
+            {% endfor %}
+        </div> {# close .bracket-grid (losers) #}
+    {% endif %}
+    {% endif %} {# close three-competitor conditional #}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Helper function to get element's absolute position
+            function getElementAbsolutePosition(element) {
+                const rect = element.getBoundingClientRect();
+                return {
+                    top: rect.top + window.scrollY,
+                    left: rect.left + window.scrollX,
+                    bottom: rect.bottom + window.scrollY,
+                    right: rect.right + window.scrollX,
+                    width: rect.width,
+                    height: rect.height
+                };
+            }
+
+            // Draw connector lines for pending advancements (from active matches to TBD slots)
+            function drawPendingAdvancementLines() {
+                const svgCanvas = document.getElementById('bracket-svg-connectors');
+                if (!svgCanvas) return;
+                
+                const actualSvgRect = getElementAbsolutePosition(svgCanvas);
+                const allMatchContainers = document.querySelectorAll('.match-container');
+
+                allMatchContainers.forEach(sourceMatchContainer => {
+                    // Skip completed matches
+                    if (sourceMatchContainer.classList.contains('match-complete')) return;
+
+                    const sourceMatchId = sourceMatchContainer.dataset.matchId;
+                    const feedsIntoMatchId = sourceMatchContainer.dataset.feedsIntoMatchId;
+
+                    if (!sourceMatchId || !feedsIntoMatchId) return;
+
+                    const targetMatchContainer = document.querySelector(`.match-container[data-match-id="${feedsIntoMatchId}"]`);
+                    if (!targetMatchContainer) return;
+
+                    const targetTbdPlayerBox = targetMatchContainer.querySelector(`.player-box.tbd-player[data-fed-by-match-id="${sourceMatchId}"]`);
+                    if (!targetTbdPlayerBox) return;
+
+                    // Check if target is in compact layout (same logic as solid connector lines)
+                    const targetRoundContainer = targetMatchContainer.closest('.round-matches');
+                    const isTargetCompact = targetRoundContainer && targetRoundContainer.classList.contains('compact');
+                    
+                    // For compact matches, use match container; for stacked, use specific TBD player box
+                    const targetElement = isTargetCompact ? targetMatchContainer : targetTbdPlayerBox;
+
+                    const sourceRect = getElementAbsolutePosition(sourceMatchContainer);
+                    const targetRect = getElementAbsolutePosition(targetElement);
+
+                    if (!sourceRect || sourceRect.width === 0 || !targetRect || targetRect.width === 0) return;
+
+                    // Calculate start and end points - for compact matches, connect to leftmost edge
+                    const startX = sourceRect.right - actualSvgRect.left;
+                    const startY = (sourceRect.top + sourceRect.height / 2) - actualSvgRect.top;
+                    const endX = targetRect.left - actualSvgRect.left;
+                    const endY = (targetRect.top + targetRect.height / 2) - actualSvgRect.top;
+                    
+                    const cornerRadius = 10; // Adjust for desired roundness
+                    const midX = startX + (endX - startX) / 2;
+
+                    // Determine direction signs for corner adjustments
+                    const dirX1 = Math.sign(midX - startX) || 1; // Sign for horizontal approach to first corner
+                    const dirY = Math.sign(endY - startY) || 1;   // Sign for vertical segment
+                    const dirX2 = Math.sign(endX - midX) || 1;   // Sign for horizontal departure from second corner
+
+                    // Check if path segments are too short for full corner radius
+                    const actualRadiusX1 = Math.min(cornerRadius, Math.abs(midX - startX) / 2);
+                    const actualRadiusY = Math.min(cornerRadius, Math.abs(endY - startY) / 2);
+                    const actualRadiusX2 = Math.min(cornerRadius, Math.abs(endX - midX) / 2);
+                    
+                    // Points for the path with rounded corners
+                    const p1x = startX;
+                    const p1y = startY;
+
+                    const p2x = midX - dirX1 * actualRadiusX1;
+                    const p2y = startY;
+
+                    const c1x = midX;
+                    const c1y = startY; // Control point for 1st corner
+
+                    const p3x = midX;
+                    const p3y = startY + dirY * actualRadiusY;
+
+                    const p4x = midX;
+                    const p4y = endY - dirY * actualRadiusY;
+
+                    const c2x = midX;
+                    const c2y = endY; // Control point for 2nd corner
+
+                    const p5x = midX + dirX2 * actualRadiusX2;
+                    const p5y = endY;
+
+                    const p6x = endX;
+                    const p6y = endY;
+
+                    // Construct the path string
+                    // M (Move to P1)
+                    // L (Line to P2 - start of 1st curve)
+                    // Q (Quadratic Bézier to P3, control C1 - 1st rounded corner)
+                    // L (Line to P4 - start of 2nd curve)
+                    // Q (Quadratic Bézier to P5, control C2 - 2nd rounded corner)
+                    // L (Line to P6 - end of path)
+                    const pathD = `M ${p1x} ${p1y} L ${p2x} ${p2y} Q ${c1x} ${c1y} ${p3x} ${p3y} L ${p4x} ${p4y} Q ${c2x} ${c2y} ${p5x} ${p5y} L ${p6x} ${p6y}`;
+
+                    // Create SVG path element
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', pathD);
+                    path.setAttribute('stroke-width', '8');
+                    path.setAttribute('fill', 'none');
+                    path.classList.add('pending-advancement-line');
+                    
+                    // Determine if this line connects to a match related to the currently active match
+                    const underwayMatch = document.querySelector('.match-container.match-underway');
+                    let usePathHighlightColor = false;
+                    
+                    if (underwayMatch) {
+                        const underwayMatchId = underwayMatch.dataset.matchId;
+                        
+                        // Check if this line connects to or from a match related to the active match
+                        if (sourceMatchId === underwayMatchId || feedsIntoMatchId === underwayMatchId ||
+                            sourceMatchContainer.classList.contains('match-path-related') ||
+                            targetMatchContainer.classList.contains('match-path-related')) {
+                            usePathHighlightColor = true;
+                        }
+                    }
+                    
+                    // Set appropriate color and stroke pattern
+                    const bracketContainer = document.querySelector('.tournament-bracket-container');
+                    let connectorColor = '#777';
+                    if (usePathHighlightColor && bracketContainer) {
+                        const computedStyle = getComputedStyle(bracketContainer);
+                        connectorColor = computedStyle.getPropertyValue('--path-highlight-color').trim() || '#ccaa00';
+                    } else if (bracketContainer) {
+                        const computedStyle = getComputedStyle(bracketContainer);
+                        connectorColor = computedStyle.getPropertyValue('--round-title-bg-color').trim() || '#777';
+                    }
+                    
+                    path.setAttribute('stroke', connectorColor);
+                    path.setAttribute('stroke-dasharray', '5,5'); // Dashed pattern for pending lines
+                    
+                    // Add path-highlight class for higher z-index if this is a path-related line
+                    if (usePathHighlightColor) {
+                        path.classList.add('path-highlight');
+                    }
+
+                    svgCanvas.appendChild(path);
+                });
+            }
+
+            // Draw connector lines for matches with winners advancing to next rounds
+            function updateSvgConnectorLines() {
+                const svgCanvas = document.getElementById('bracket-svg-connectors');
+                if (!svgCanvas) return;
+                
+                // Clear previous lines
+                svgCanvas.innerHTML = ''; 
+
+                const actualSvgRect = getElementAbsolutePosition(svgCanvas);
+                
+                // Find matches that should have outgoing connector lines
+                const matchesWithOutgoingLines = document.querySelectorAll(
+                    '.match-container[data-has-outgoing-line="True"][data-winner-id][data-feeds-into-match-id]'
+                );
+
+                // Two-pass drawing: separate lines into regular and highlighted
+                const regularLines = [];
+                const highlightedLines = [];
+                
+                // First pass: categorize lines
+                matchesWithOutgoingLines.forEach(sourceMatchDiv => {
+                    const feedsIntoMatchId = sourceMatchDiv.dataset.feedsIntoMatchId;
+                    const targetMatchContainer = document.querySelector(`.match-container[data-match-id="${feedsIntoMatchId}"]`);
+                    
+                    // Check if this line should be highlighted
+                    const underwayMatch = document.querySelector('.match-container.match-underway');
+                    let usePathHighlightColor = false;
+                    
+                    if (underwayMatch) {
+                        const underwayMatchId = underwayMatch.dataset.matchId;
+                        const sourceMatchId = sourceMatchDiv.dataset.matchId;
+                        
+                        if (sourceMatchId === underwayMatchId || feedsIntoMatchId === underwayMatchId ||
+                            sourceMatchDiv.classList.contains('match-path-related') ||
+                            (targetMatchContainer && targetMatchContainer.classList.contains('match-path-related'))) {
+                            usePathHighlightColor = true;
+                        }
+                    }
+                    
+                    if (usePathHighlightColor) {
+                        highlightedLines.push(sourceMatchDiv);
+                    } else {
+                        regularLines.push(sourceMatchDiv);
+                    }
+                });
+                
+                // Second pass: draw regular lines first
+                regularLines.forEach(sourceMatchDiv => {
+                    const bracketType = sourceMatchDiv.dataset.bracketType || 'winners';
+                    const winnerId = sourceMatchDiv.dataset.winnerId;
+                    const feedsIntoMatchId = sourceMatchDiv.dataset.feedsIntoMatchId;
+                    const lineStyle = sourceMatchDiv.dataset.lineStyle || 'solid';
+                    
+                    // Find source and target elements
+                    const sourcePlayerBox = sourceMatchDiv.querySelector(`.player-box[data-participant-id="${winnerId}"]`);
+                    const targetMatchContainer = document.querySelector(`.match-container[data-match-id="${feedsIntoMatchId}"]`);
+
+                    if (!sourcePlayerBox || !targetMatchContainer) return;
+
+                    // Find target player box based on bracket type and match layout
+                    let targetPlayerBox = null;
+                    const playerBoxesInTarget = targetMatchContainer.querySelectorAll('.player-box');
+                    
+                    if (bracketType === 'losers') {
+                        // For losers bracket, connect to single box or player with matching ID
+                        if (playerBoxesInTarget.length === 1) {
+                            targetPlayerBox = playerBoxesInTarget[0];
+                        } else if (playerBoxesInTarget.length >= 2) {
+                            targetPlayerBox = targetMatchContainer.querySelector(`.player-box[data-participant-id="${winnerId}"]`);
+                        }
+                    } else {
+                        // For winners bracket, find matching player box
+                        targetPlayerBox = targetMatchContainer.querySelector(`.player-box[data-participant-id="${winnerId}"]`);
+                    }
+
+                    // Determine if source is in condensed or stacked layout
+                    const sourceRoundContainer = sourceMatchDiv.closest('.round-matches');
+                    const isSourceCondensed = sourceRoundContainer && sourceRoundContainer.classList.contains('compact');
+                    
+                    // Calculate start coordinates based on layout
+                    let startX, startY;
+                    if (isSourceCondensed) {
+                        const sourceRect = getElementAbsolutePosition(sourceMatchDiv);
+                        startX = sourceRect.right - actualSvgRect.left;
+                        startY = (sourceRect.top + sourceRect.height / 2) - actualSvgRect.top;
+                    } else {
+                        const sourceRect = getElementAbsolutePosition(sourcePlayerBox);
+                        startX = sourceRect.right - actualSvgRect.left;
+                        startY = (sourceRect.top + sourceRect.height / 2) - actualSvgRect.top;
+                    }
+
+                    // Determine target element and coordinates based on layout
+                    const targetRoundContainer = targetMatchContainer.closest('.round-matches');
+                    const isTargetCondensed = targetRoundContainer && targetRoundContainer.classList.contains('compact');
+                    let targetElement;
+                    
+                    if (isTargetCondensed) {
+                        targetElement = targetMatchContainer;
+                    } else {
+                        if (!targetPlayerBox) {
+                            // Try fallback for losers bracket
+                            if (bracketType === 'losers' && playerBoxesInTarget.length > 0) {
+                                targetElement = playerBoxesInTarget[0];
+                            } else {
+                                return; // Skip drawing this line
+                            }
+                        } else {
+                            targetElement = targetPlayerBox;
+                        }
+                    }
+
+                    const targetRect = getElementAbsolutePosition(targetElement);
+                    if (!targetRect || targetRect.width === 0) return;
+
+                    // Calculate end coordinates - for compact matches, always connect to leftmost edge
+                    let endX, endY;
+                    if (isTargetCondensed) {
+                        // For compact matches, connect to the leftmost edge of the match container
+                        endX = targetRect.left - actualSvgRect.left;
+                        endY = (targetRect.top + targetRect.height / 2) - actualSvgRect.top;
+                    } else {
+                        // For stacked matches, connect to the specific player box
+                        endX = targetRect.left - actualSvgRect.left;
+                        endY = (targetRect.top + targetRect.height / 2) - actualSvgRect.top;
+                    }
+                    
+                    // Create orthogonal path with rounded corners (like Visio flowchart)
+                    const cornerRadius = 15; // Fixed radius for all corners
+                    const midX = startX + (endX - startX) * 0.6; // 60% of the way horizontally
+                    
+                    let pathD;
+                    if (Math.abs(endY - startY) < cornerRadius * 2) {
+                        // If vertical distance is too small for corners, use straight line
+                        pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+                    } else {
+                        // Create orthogonal path with rounded corners
+                        if (endY > startY) {
+                            // Going down
+                            pathD = `M ${startX} ${startY} 
+                                     L ${midX - cornerRadius} ${startY} 
+                                     Q ${midX} ${startY} ${midX} ${startY + cornerRadius} 
+                                     L ${midX} ${endY - cornerRadius} 
+                                     Q ${midX} ${endY} ${midX + cornerRadius} ${endY} 
+                                     L ${endX} ${endY}`;
+                        } else {
+                            // Going up
+                            pathD = `M ${startX} ${startY} 
+                                     L ${midX - cornerRadius} ${startY} 
+                                     Q ${midX} ${startY} ${midX} ${startY - cornerRadius} 
+                                     L ${midX} ${endY + cornerRadius} 
+                                     Q ${midX} ${endY} ${midX + cornerRadius} ${endY} 
+                                     L ${endX} ${endY}`;
+                        }
+                    }
+                    
+                    // Create and configure SVG path element
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', pathD);
+                    
+                    // Determine if this line connects to a match related to the currently active match
+                    const underwayMatch = document.querySelector('.match-container.match-underway');
+                    let connectorColor = '#777';
+                    let usePathHighlightColor = false;
+                    
+                    if (underwayMatch) {
+                        const underwayMatchId = underwayMatch.dataset.matchId;
+                        const sourceMatchId = sourceMatchDiv.dataset.matchId;
+                        
+                        // Check if this line connects to or from a match related to the active match
+                        if (sourceMatchId === underwayMatchId || feedsIntoMatchId === underwayMatchId ||
+                            sourceMatchDiv.classList.contains('match-path-related') ||
+                            targetMatchContainer.classList.contains('match-path-related')) {
+                            usePathHighlightColor = true;
+                        }
+                    }
+                    
+                    // Get appropriate color
+                    const bracketContainer = document.querySelector('.tournament-bracket-container');
+                    if (usePathHighlightColor && bracketContainer) {
+                        const computedStyle = getComputedStyle(bracketContainer);
+                        connectorColor = computedStyle.getPropertyValue('--path-highlight-color').trim() || '#ccaa00';
+                    } else if (bracketContainer) {
+                        const computedStyle = getComputedStyle(bracketContainer);
+                        connectorColor = computedStyle.getPropertyValue('--round-title-bg-color').trim() || '#777';
+                    }
+                    
+                    path.setAttribute('stroke', connectorColor);
+                    path.setAttribute('stroke-width', '8');
+                    path.setAttribute('fill', 'none');
+
+                    if (lineStyle === 'dashed') {
+                        path.setAttribute('stroke-dasharray', '5,5');
+                    }
+                    
+                    // Add path-highlight class for higher z-index if this is a path-related line
+                    if (usePathHighlightColor) {
+                        path.classList.add('path-highlight');
+                    }
+                    
+                    svgCanvas.appendChild(path);
+                });
+                
+                // Third pass: draw highlighted lines on top
+                highlightedLines.forEach(sourceMatchDiv => {
+                    const bracketType = sourceMatchDiv.dataset.bracketType || 'winners';
+                    const winnerId = sourceMatchDiv.dataset.winnerId;
+                    const feedsIntoMatchId = sourceMatchDiv.dataset.feedsIntoMatchId;
+                    const lineStyle = sourceMatchDiv.dataset.lineStyle || 'solid';
+                    
+                    // Find source and target elements
+                    const sourcePlayerBox = sourceMatchDiv.querySelector(`.player-box[data-participant-id="${winnerId}"]`);
+                    const targetMatchContainer = document.querySelector(`.match-container[data-match-id="${feedsIntoMatchId}"]`);
+
+                    if (!sourcePlayerBox || !targetMatchContainer) return;
+
+                    // Find target player box based on bracket type and match layout (same logic as regular lines)
+                    let targetPlayerBox = null;
+                    const playerBoxesInTarget = targetMatchContainer.querySelectorAll('.player-box');
+                    
+                    if (bracketType === 'losers') {
+                        // For losers bracket, connect to single box or player with matching ID
+                        if (playerBoxesInTarget.length === 1) {
+                            targetPlayerBox = playerBoxesInTarget[0];
+                        } else if (playerBoxesInTarget.length >= 2) {
+                            targetPlayerBox = targetMatchContainer.querySelector(`.player-box[data-participant-id="${winnerId}"]`);
+                        }
+                    } else {
+                        // For winners bracket, find matching player box
+                        targetPlayerBox = targetMatchContainer.querySelector(`.player-box[data-participant-id="${winnerId}"]`);
+                    }
+
+                    // Determine if source is in condensed or stacked layout
+                    const sourceRoundContainer = sourceMatchDiv.closest('.round-matches');
+                    const isSourceCondensed = sourceRoundContainer && sourceRoundContainer.classList.contains('compact');
+                    
+                    // Calculate start coordinates based on layout
+                    let startX, startY;
+                    if (isSourceCondensed) {
+                        const sourceRect = getElementAbsolutePosition(sourceMatchDiv);
+                        startX = sourceRect.right - actualSvgRect.left;
+                        startY = (sourceRect.top + sourceRect.height / 2) - actualSvgRect.top;
+                    } else {
+                        const sourceRect = getElementAbsolutePosition(sourcePlayerBox);
+                        startX = sourceRect.right - actualSvgRect.left;
+                        startY = (sourceRect.top + sourceRect.height / 2) - actualSvgRect.top;
+                    }
+
+                    // Determine target element and coordinates based on layout (same logic as regular lines)
+                    const targetRoundContainer = targetMatchContainer.closest('.round-matches');
+                    const isTargetCondensed = targetRoundContainer && targetRoundContainer.classList.contains('compact');
+                    let targetElement;
+                    
+                    if (isTargetCondensed) {
+                        targetElement = targetMatchContainer;
+                    } else {
+                        if (!targetPlayerBox) {
+                            // Try fallback for losers bracket
+                            if (bracketType === 'losers' && playerBoxesInTarget.length > 0) {
+                                targetElement = playerBoxesInTarget[0];
+                            } else {
+                                return; // Skip drawing this line
+                            }
+                        } else {
+                            targetElement = targetPlayerBox;
+                        }
+                    }
+
+                    const targetRect = getElementAbsolutePosition(targetElement);
+                    if (!targetRect || targetRect.width === 0) return;
+
+                    // Calculate end coordinates - for compact matches, always connect to leftmost edge
+                    let endX, endY;
+                    if (isTargetCondensed) {
+                        // For compact matches, connect to the leftmost edge of the match container
+                        endX = targetRect.left - actualSvgRect.left;
+                        endY = (targetRect.top + targetRect.height / 2) - actualSvgRect.top;
+                    } else {
+                        // For stacked matches, connect to the specific player box
+                        endX = targetRect.left - actualSvgRect.left;
+                        endY = (targetRect.top + targetRect.height / 2) - actualSvgRect.top;
+                    }
+                    
+                    // Create simple orthogonal path
+                    const cornerRadius = 15;
+                    const midX = startX + (endX - startX) * 0.6;
+                    
+                    let pathD;
+                    if (Math.abs(endY - startY) < cornerRadius * 2) {
+                        pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+                    } else {
+                        if (endY > startY) {
+                            pathD = `M ${startX} ${startY} L ${midX - cornerRadius} ${startY} Q ${midX} ${startY} ${midX} ${startY + cornerRadius} L ${midX} ${endY - cornerRadius} Q ${midX} ${endY} ${midX + cornerRadius} ${endY} L ${endX} ${endY}`;
+                        } else {
+                            pathD = `M ${startX} ${startY} L ${midX - cornerRadius} ${startY} Q ${midX} ${startY} ${midX} ${startY - cornerRadius} L ${midX} ${endY + cornerRadius} Q ${midX} ${endY} ${midX + cornerRadius} ${endY} L ${endX} ${endY}`;
+                        }
+                    }
+                    
+                    // Create highlighted path element
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', pathD);
+                    
+                    // Use path highlight color
+                    const bracketContainer = document.querySelector('.tournament-bracket-container');
+                    let connectorColor = '#ccaa00';
+                    if (bracketContainer) {
+                        const computedStyle = getComputedStyle(bracketContainer);
+                        connectorColor = computedStyle.getPropertyValue('--path-highlight-color').trim() || '#ccaa00';
+                    }
+                    
+                    path.setAttribute('stroke', connectorColor);
+                    path.setAttribute('stroke-width', '8');
+                    path.setAttribute('fill', 'none');
+
+                    if (lineStyle === 'dashed') {
+                        path.setAttribute('stroke-dasharray', '5,5');
+                    }
+                    
+                    path.classList.add('path-highlight');
+                    svgCanvas.appendChild(path);
+                });
+            }
+            
+            // Function to highlight matches related to the current match in progress
+            function highlightMatchPath() {
+                // Find the match currently in progress
+                const underwayMatch = document.querySelector('.match-container.match-underway');
+                if (!underwayMatch) return;
+
+                const underwayMatchId = underwayMatch.dataset.matchId;
+                const relatedMatches = new Set();
+
+                // Clear any existing path highlighting
+                document.querySelectorAll('.match-path-related').forEach(match => {
+                    match.classList.remove('match-path-related');
+                });
+
+                // Function to recursively find downstream matches (previous matches that led to current match)
+                function findDownstreamMatches(targetMatchId) {
+                    document.querySelectorAll('.match-container').forEach(match => {
+                        const feedsIntoMatchId = match.dataset.feedsIntoMatchId;
+                        if (feedsIntoMatchId === targetMatchId && !relatedMatches.has(match.dataset.matchId)) {
+                            relatedMatches.add(match.dataset.matchId);
+                            // Recursively find matches that fed into this match
+                            findDownstreamMatches(match.dataset.matchId);
+                        }
+                    });
+                }
+
+                // Function to recursively find upstream matches (future matches that current match feeds into)
+                function findUpstreamMatches(sourceMatchId) {
+                    const sourceMatch = document.querySelector(`.match-container[data-match-id="${sourceMatchId}"]`);
+                    if (sourceMatch) {
+                        const feedsIntoMatchId = sourceMatch.dataset.feedsIntoMatchId;
+                        if (feedsIntoMatchId && !relatedMatches.has(feedsIntoMatchId)) {
+                            relatedMatches.add(feedsIntoMatchId);
+                            // Recursively find matches that this match feeds into
+                            findUpstreamMatches(feedsIntoMatchId);
+                        }
+                    }
+                }
+
+                // Find all downstream matches (previous matches in the path)
+                findDownstreamMatches(underwayMatchId);
+
+                // Find all upstream matches (future matches in the path)
+                findUpstreamMatches(underwayMatchId);
+
+                // Apply highlighting to all related matches
+                relatedMatches.forEach(matchId => {
+                    const match = document.querySelector(`.match-container[data-match-id="${matchId}"]`);
+                    if (match) {
+                        match.classList.add('match-path-related');
+                    }
+                });
+            }
+
+            // Combined function to draw all connector lines and highlight path
+            function drawAllLines() {
+                // First highlight matches to determine which lines should be highlighted
+                highlightMatchPath();  // Highlight related matches
+                
+                // Draw all lines with proper ordering (highlighted lines will be drawn last)
+                updateSvgConnectorLines();  // Draw main connector lines
+                drawPendingAdvancementLines();  // Draw pending advancement lines
+            }
+
+            // Initial draw after DOM is ready
+            setTimeout(drawAllLines, 150); 
+
+            // Redraw on window resize with debouncing
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(drawAllLines, 250);
+            });
+        }); 
+    </script>
+    <div class="tournament-footer-name">
+            {{ data.tournament_name | default('Tournament Name Not Available') }}
+        </div>
+    </div>
+    {% endif %} {# End tournament complete check #}
+</body>
+</html>

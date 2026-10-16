@@ -338,6 +338,7 @@
                 ['/current_matches', 'Current matches'],
                 ['/filtered_matches', 'Next match per robot'],
             ]],
+            ['Brackets', state.tournaments.map(t => ['/' + encodeURIComponent(t.slug), t.name])],
             ['Data feeds', [
                 ['/matches_data.json', 'All matches'],
                 ['/pending_matches.json', 'Pending matches'],
@@ -346,7 +347,7 @@
             ]],
             ['Admin', [['/admin', 'This page']]],
         ];
-        $('urls').replaceChildren(...groups.flatMap(([title, items]) => [
+        $('urls').replaceChildren(...groups.filter(([, items]) => items.length).flatMap(([title, items]) => [
             h('div', { class: 'group-title' }, title),
             ...items.map(([path, label]) => urlRow(path, label)),
         ]));
