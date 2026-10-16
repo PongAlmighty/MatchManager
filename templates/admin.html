@@ -76,6 +76,8 @@
         .go { width: 64px; height: 44px; flex: none; border-radius: 8px; border: 0; background: var(--go); color: #F3F4F6; font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: .06em; }
         .go:hover:not(:disabled) { filter: brightness(1.2); }
         .onair-tile .go { background: var(--air); }
+        .onair-tile .go:hover { filter: none; background: #5A1D21; }
+        .onair-tile .go:hover::after { content: ' ✕'; }
         .pending .go { background: var(--pending); color: #14110A; }
         .go:disabled { background: #1F232C; color: #5E6676; }
         .remove { align-self: flex-start; width: 44px; height: 44px; color: var(--faint); }
@@ -241,7 +243,7 @@
         const live = state.live;
         $('onair').classList.toggle('off', !live);
         $('onair-tag').textContent = live ? 'ON AIR' : 'OFF AIR';
-        $('onair-tournament').textContent = live ? live.tournament : 'Nothing pushed yet';
+        $('onair-tournament').textContent = live ? live.tournament : '/live is blank green';
         $('onair-screen').textContent = live ? live.screen : '';
         $('onair-match').textContent = live ? live.match : '';
 
@@ -283,8 +285,9 @@
             h('div', { class: 'tile-body' }, control,
                 h('button', {
                     type: 'button', class: 'go', disabled: empty,
-                    'aria-label': `Put ${label} for ${t.name} on air`,
-                    onclick: () => post('go', { slug: t.slug, mode, match_id: effective }),
+                    title: onAir ? 'Click to take it off air (blank green)' : null,
+                    'aria-label': onAir ? `Take ${label} for ${t.name} off air` : `Put ${label} for ${t.name} on air`,
+                    onclick: () => onAir ? post('off') : post('go', { slug: t.slug, mode, match_id: effective }),
                 }, onAir ? 'LIVE' : 'GO')));
     }
 

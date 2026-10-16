@@ -745,6 +745,14 @@ def admin_go_live(data):
     set_config(new_live={"slug": slug, "mode": mode, "match_id": match_id})
 
 
+@app.route("/admin/api/off", methods=["POST"])
+@require_admin
+@admin_action
+def admin_off_air(data):
+    # A blank /live is plain chroma green and stops pulling that tournament's data.
+    set_config(new_live=None)
+
+
 @app.route("/admin/api/refresh", methods=["POST"])
 @require_admin
 @admin_action

@@ -34,7 +34,7 @@ Layout A (status strip on top) is the chosen design.
 - The on-air screen and its row are highlighted; the top strip shows what's on air.
 - When the bracket moves on, the dropdown re-ranks its suggestions but what's on air stays put until GO.
 - If the fight that's on air finishes, `/live` falls back to that tournament's Overview rather than picking a different fight on its own.
-- No clear/blank button: taking it off air is done in the video switcher.
+- Clicking the on-air screen's LIVE button again takes it off air: `/live` goes to plain chroma green and stops pulling that tournament's data.
 
 ## Status strip (top)
 
