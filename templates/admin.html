@@ -32,6 +32,8 @@
         .dot.paused { background: var(--pending); }
         .muted { color: var(--muted); font-size: 14px; }
         .btn { height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--control); background: var(--button); font-size: 14px; font-weight: 600; }
+        .btn.stop { background: #5A1D21; border-color: var(--air); color: #FFE3E4; }
+        .btn.resume { background: #16301F; border-color: #2F7A4D; color: #C9F5DA; }
         .spacer { flex: 1 1 0; }
         .onair { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 10px; background: var(--air-bg); border: 1px solid var(--air); max-width: 100%; min-width: 0; }
         .onair.off { background: var(--panel); border-color: var(--line2); }
@@ -227,9 +229,10 @@
     function renderStrip() {
         const s = state.status;
         $('query-dot').className = 'dot' + (s.paused ? ' paused' : '');
-        $('query-label').textContent = s.paused ? 'Queries paused' : 'Queries active';
+        $('query-label').textContent = s.paused ? 'Challonge calls stopped' : 'Challonge calls running';
         $('query-detail').textContent = s.paused ? `${s.pause_reason} (since ${s.paused_at})` : `Auto-pause in ${s.idle_left}`;
-        $('pause').textContent = s.paused ? 'Resume' : 'Pause';
+        $('pause').textContent = s.paused ? 'Resume Challonge calls' : 'Stop all Challonge calls';
+        $('pause').className = 'btn ' + (s.paused ? 'resume' : 'stop');
         $('pause').onclick = () => post(s.paused ? 'resume' : 'pause');
         $('calls').textContent = `${s.calls_last_hour} Challonge call${s.calls_last_hour === 1 ? '' : 's'} in the last hour · last change ${s.last_change_time}`;
         $('calls').title = `${s.api_calls} calls since ${s.started}. Last data change ${s.last_change}.`;
@@ -378,8 +381,8 @@
         renderUrls();
         $('add-note').textContent = 'Adding checks the tournament with Challonge (1 API request).'
             + (state.saved ? '' : ' Changes are not saved on this server and will reset on restart.');
-        $('footnote').textContent = `Queries auto-pause after ${state.status.idle_pause} with no changes. `
-            + 'Counts reset when the server restarts, and a restarted server starts with queries active.';
+        $('footnote').textContent = `Challonge calls also stop on their own after ${state.status.idle_pause} with no changes. `
+            + 'Stopping is saved, so the server stays stopped after a restart until you resume.';
     }
 
     $('add').addEventListener('submit', async e => {

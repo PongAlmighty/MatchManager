@@ -34,13 +34,14 @@ challonge.set_credentials(UserName, APIKey)
 DEFAULT_TOURNAMENTS = [{"slug": "PongsTestTournament01", "ring": 1, "name": ""}]
 DEFAULT_DISPLAY = {"background_color": "#00ff00", "title_color": "#FFFFFF", "round_title_bg_color": "#2C2C2C"}
 CONFIG_BUCKET = os.environ.get("CONFIG_BUCKET", "")
-CONFIG_OBJECT = "tournaments.json"
+CONFIG_OBJECT = os.environ.get("CONFIG_OBJECT", "tournaments.json")  # the dev service uses its own file
 GCS_TOKEN_URL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 # [{"slug", "ring": int or None, "name", "pinned_upset", "pinned_elimination", "display": {...}}], in display order
 tournaments = []
 tournament_ids = []
 RING_TOURNAMENTS = {}  # vsbar ring number -> tournament slugs on that ring
 live = None  # what /live shows: {"slug", "mode", "match_id"}, or None for a blank screen
+saved_pause = None  # why Challonge calls are stopped, saved so a restart stays stopped; None when running
 config_error = ""
 _config_lock = threading.Lock()
 _UNCHANGED = object()
@@ -72,21 +73,22 @@ def _gcs_write(data):
     ).raise_for_status()
 
 
-def set_config(new_tournaments=None, new_live=_UNCHANGED, save=True):
-    """Replace the tournament list and/or what's live. Saves first, so a failed save leaves things as they were."""
-    global tournaments, tournament_ids, RING_TOURNAMENTS, live
+def set_config(new_tournaments=None, new_live=_UNCHANGED, new_pause=_UNCHANGED, save=True):
+    """Replace the tournament list, what's live and/or the saved pause. Saves first, so a failed save leaves things as they were."""
+    global tournaments, tournament_ids, RING_TOURNAMENTS, live, saved_pause
     new_tournaments = tournaments if new_tournaments is None else new_tournaments
     new_live = live if new_live is _UNCHANGED else new_live
+    new_pause = saved_pause if new_pause is _UNCHANGED else new_pause
     if new_live and new_live["slug"] not in {t["slug"] for t in new_tournaments}:
         new_live = None
     if save and CONFIG_BUCKET:
-        _gcs_write({"tournaments": new_tournaments, "live": new_live})
+        _gcs_write({"tournaments": new_tournaments, "live": new_live, "paused": new_pause})
     rings = {}
     for t in new_tournaments:
         if t.get("ring"):
             rings.setdefault(t["ring"], []).append(t["slug"])
     tournaments, tournament_ids, RING_TOURNAMENTS = new_tournaments, [t["slug"] for t in new_tournaments], rings
-    live = new_live
+    live, saved_pause = new_live, new_pause
 
 
 def load_tournaments():
@@ -102,7 +104,7 @@ def load_tournaments():
         data = {"tournaments": data, "live": None}
     if data is None:
         data = {"tournaments": [dict(t) for t in DEFAULT_TOURNAMENTS], "live": None}
-    set_config(data["tournaments"], data.get("live"), save=False)
+    set_config(data["tournaments"], data.get("live"), data.get("paused"), save=False)
 
 
 def parse_tournament_id(text):
@@ -140,6 +142,8 @@ _state = {
     "api_calls": 0,
     "started": datetime.now(timezone),
 }
+if saved_pause:  # stopped before the restart, so stay stopped
+    _state.update(paused=True, paused_at=_state["started"], pause_reason=saved_pause)
 _call_times = deque()  # when each Challonge call in the last hour was made
 
 
@@ -166,6 +170,7 @@ def pause(reason):
     _state["paused_at"] = datetime.now(timezone)
     _state["pause_reason"] = reason
     print(f"Challonge queries paused: {reason}")
+    _save_pause(reason)
 
 
 def resume():
@@ -176,6 +181,19 @@ def resume():
         # Start a fresh idle window so it doesn't immediately pause again.
         _state["last_change"] = datetime.now(timezone)
     print("Challonge queries resumed")
+    _save_pause(None)
+
+
+def _save_pause(reason):
+    """Save the pause with the config, in the background since callers may hold the cache lock."""
+    def save():
+        with _config_lock:
+            try:
+                set_config(new_pause=reason)
+            except Exception as e:
+                print(f"Couldn't save the pause state: {e}")
+
+    threading.Thread(target=save, daemon=True).start()
 
 
 def cached(key, fetch):
@@ -746,7 +764,7 @@ def admin_refresh_tournament(data):
 @admin_action
 def admin_pause(data):
     with _cache_lock:
-        pause("Paused from the admin page")
+        pause("Stopped from the admin page")
 
 
 @app.route("/admin/api/resume", methods=["POST"])
