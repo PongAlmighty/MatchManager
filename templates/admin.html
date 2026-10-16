@@ -81,6 +81,7 @@
         .pending .go { background: var(--pending); color: #14110A; }
         .go:disabled { background: #1F232C; color: #5E6676; }
         .remove { align-self: flex-start; width: 44px; height: 44px; color: var(--faint); }
+        .icon.trash:hover { color: #FF8A8F; }
         .empty-list { padding: 24px; border-radius: 14px; border: 1px dashed var(--control); color: var(--muted); }
 
         .add { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 16px; border-radius: 14px; border: 1px dashed var(--control); }
@@ -190,7 +191,7 @@
     const ICONS = {
         up: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg>',
         down: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>',
-        x: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+        trash: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.8v4.4M9.2 6.8v4.4"/></svg>',
     };
 
     let toastTimer;
@@ -327,7 +328,7 @@
                                          'aria-label': `VS bar ring for ${t.name}`,
                                          onchange: e => post('ring', { slug: t.slug, ring: e.target.value }) }))))),
             h('div', { class: 'screens' }, SCREENS.map(([mode, label]) => tile(t, mode, label))),
-            h('button', { type: 'button', class: 'icon remove', html: ICONS.x, 'aria-label': `Remove ${t.name}`,
+            h('button', { type: 'button', class: 'icon remove trash', html: ICONS.trash, 'aria-label': `Remove ${t.name}`,
                           onclick: () => removeTournament(t) }));
     }
 
@@ -341,7 +342,7 @@
                                  onchange: e => post('display', { slug: t.slug, key, value: e.target.value }) }),
                     h('span', { class: 'mono muted' }, value));
             }),
-            h('button', { type: 'button', class: 'icon', html: ICONS.x, 'aria-label': `Remove ${t.name}`,
+            h('button', { type: 'button', class: 'icon trash', html: ICONS.trash, 'aria-label': `Remove ${t.name}`,
                           title: 'Remove this tournament', onclick: () => removeTournament(t) }));
     }
 
