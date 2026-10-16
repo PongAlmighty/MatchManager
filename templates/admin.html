@@ -1,173 +1,401 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>MatchManager Admin</title>
     <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, Arial, sans-serif; background: #f4f4f5; color: #18181b; margin: 0; padding: 24px 16px; }
-        main { max-width: 560px; margin: 0 auto; }
-        h1 { font-size: 22px; margin: 0 0 16px; }
-        .card { background: #fff; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-        .status { font-size: 20px; font-weight: 700; }
-        .active { color: #15803d; }
-        .paused { color: #b91c1c; }
-        dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
-        dt { color: #71717a; }
-        dd { margin: 0; }
-        button { font-size: 16px; padding: 10px 18px; border: 0; border-radius: 8px; cursor: pointer; color: #fff; }
-        .go { background: #15803d; }
-        .stop { background: #52525b; }
-        .note { color: #71717a; font-size: 13px; }
-        h2 { font-size: 17px; margin: 0 0 12px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th { text-align: left; font-size: 13px; color: #71717a; font-weight: 600; padding: 0 6px 6px 0; }
-        td { padding: 8px 6px 8px 0; border-top: 1px solid #e4e4e7; vertical-align: middle; }
-        td:last-child { text-align: right; padding-right: 0; }
-        form.inline { display: flex; gap: 6px; align-items: center; }
-        input { font-size: 16px; padding: 7px 9px; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; }
-        input.ring { width: 72px; }
-        button.small { font-size: 14px; padding: 7px 12px; }
-        .remove { background: #b91c1c; }
-        form.add { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-        form.add label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #52525b; }
-        form.add label:first-child { flex: 1 1 220px; }
-        .msg { padding: 8px 12px; border-radius: 6px; font-size: 14px; }
-        .msg.good { background: #dcfce7; color: #14532d; }
-        .msg.bad { background: #fee2e2; color: #7f1d1d; }
-        form.screen { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid #e4e4e7; }
-        form.screen label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #52525b; }
-        select { font-size: 15px; padding: 7px 9px; border: 1px solid #d4d4d8; border-radius: 6px; max-width: 100%; }
+        :root {
+            --bg: #0D0F13; --panel: #151820; --panel2: #1A1E27; --sunk: #12151B;
+            --line: #232833; --line2: #2A303C; --control: #3A4150; --button: #232834; --go: #2C3240;
+            --text: #E8EAEE; --soft: #C9CED8; --muted: #A0A8B6; --faint: #8A93A3;
+            --air: #C9353A; --air-bg: #2A1517; --pending: #F2A93B; --ok: #3DD68C; --link: #9CC3FF;
+            --mono: 'IBM Plex Mono', ui-monospace, monospace;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 'IBM Plex Sans', system-ui, sans-serif; }
+        a { color: var(--link); }
+        button, select, input { font: inherit; color: inherit; }
+        button { cursor: pointer; }
+        button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+        button:disabled { cursor: default; }
+        select option { background: var(--panel2); color: var(--text); }
+
+        .strip { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+        .brand { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .query { display: flex; align-items: center; gap: 10px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); flex: none; }
+        .dot.paused { background: var(--pending); }
+        .muted { color: var(--muted); font-size: 14px; }
+        .btn { height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--control); background: var(--button); font-size: 14px; font-weight: 600; }
+        .spacer { flex: 1 1 0; }
+        .onair { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 10px; background: var(--air-bg); border: 1px solid var(--air); max-width: 100%; min-width: 0; }
+        .onair.off { background: var(--panel); border-color: var(--line2); }
+        .tag { padding: 4px 8px; border-radius: 6px; background: var(--air); color: #fff; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .1em; white-space: nowrap; }
+        .onair.off .tag { background: var(--go); color: var(--muted); }
+        .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mono { font-family: var(--mono); font-size: 13px; }
+        .obs { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+
+        main { padding: 20px 24px 40px; display: flex; flex-direction: column; gap: 12px; }
+        .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; padding: 12px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+        .row.live { border-color: var(--air); }
+        .meta { flex: 1 1 240px; display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+        .order { display: flex; flex-direction: column; gap: 2px; }
+        .icon { width: 32px; height: 32px; border-radius: 6px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; }
+        .icon:hover:not(:disabled) { background: var(--button); color: var(--text); }
+        .icon:disabled { opacity: .3; }
+        .info { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-top: 4px; }
+        .name { font-size: 17px; font-weight: 600; line-height: 1.25; }
+        .slug { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+        .tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .status { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #262B36; color: var(--soft); }
+        .status.on { background: #16301F; color: #7EE2A8; }
+        .ring { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+        .ring input { width: 56px; height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--control); background: var(--panel2); font-size: 14px; }
+        .screens { flex: 999 1 640px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .tile { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line2); min-width: 0; }
+        .tile.onair-tile { border-color: var(--air); background: var(--air-bg); }
+        .tile.pending { border-color: var(--pending); }
+        .tile-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+        .tile-label { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--soft); }
+        .tile-tag { padding: 2px 8px; border-radius: 6px; background: var(--air); color: #fff; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .1em; }
+        .tile-changed { padding: 2px 8px; border-radius: 6px; border: 1px solid var(--pending); color: var(--pending); font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .tile-body { display: flex; gap: 8px; align-items: stretch; margin-top: auto; }
+        .tile-note { flex: 1; min-width: 0; display: flex; align-items: center; color: var(--muted); font-size: 14px; }
+        .tile-empty { flex: 1; min-width: 0; display: flex; align-items: center; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px dashed var(--control); color: var(--faint); font-size: 14px; }
+        .tile select { flex: 1; min-width: 0; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--control); background: var(--sunk); font-size: 14px; }
+        .go { width: 64px; height: 44px; flex: none; border-radius: 8px; border: 0; background: var(--go); color: #F3F4F6; font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: .06em; }
+        .go:hover:not(:disabled) { filter: brightness(1.2); }
+        .onair-tile .go { background: var(--air); }
+        .pending .go { background: var(--pending); color: #14110A; }
+        .go:disabled { background: #1F232C; color: #5E6676; }
+        .remove { align-self: flex-start; width: 44px; height: 44px; color: var(--faint); }
+        .empty-list { padding: 24px; border-radius: 14px; border: 1px dashed var(--control); color: var(--muted); }
+
+        .add { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 16px; border-radius: 14px; border: 1px dashed var(--control); }
+        .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+        .field input { height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--control); background: var(--panel2); font-size: 15px; }
+        .primary { height: 44px; padding: 0 22px; border-radius: 8px; border: 0; background: var(--text); color: var(--bg); font-size: 15px; font-weight: 600; }
+        .primary:disabled { opacity: .6; }
+
+        .panel { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 16px; border-radius: 14px; background: var(--sunk); border: 1px solid var(--line); }
+        .panel h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+        .grid-head, .colour-row { display: grid; grid-template-columns: minmax(140px, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; align-items: center; }
+        .grid-head { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; }
+        .colour-row { padding: 6px 0; border-top: 1px solid #1F242E; }
+        .swatch { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .swatch input { width: 44px; height: 32px; flex: none; padding: 2px; border-radius: 6px; border: 1px solid var(--control); background: var(--panel2); }
+        .group-title { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 12px 0 4px; }
+        .url-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 6px 0; border-top: 1px solid #1F242E; }
+        .url-row .label { flex: 0 0 220px; color: var(--soft); font-size: 14px; }
+        .url-row a { flex: 1 1 360px; min-width: 0; }
+        .copy { width: 76px; height: 32px; flex: none; border-radius: 6px; border: 1px solid var(--control); background: var(--button); font-size: 13px; font-weight: 600; }
+        .footnote { color: var(--faint); font-size: 13px; margin: 8px 0 0; }
+
+        .msg { padding: 10px 14px; border-radius: 10px; font-size: 14px; background: #3A1518; color: #FFD5D7; border: 1px solid #6B2228; }
+        .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 32px); padding: 12px 16px; border-radius: 10px; background: #3A1518; color: #FFD5D7; border: 1px solid #6B2228; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+        .toast[hidden] { display: none; }
+        @media (max-width: 600px) { .strip, main { padding-left: 16px; padding-right: 16px; } }
     </style>
 </head>
 <body>
     <div id="paused-dot" class="paused-dot{{ " on" if queries_paused }}" title="Challonge queries paused"></div>
-<main>
-    <h1>MatchManager Admin</h1>
 
-    <div class="card">
-        {% if state.paused %}
-            <div class="status paused">Challonge queries paused</div>
-            <p>{{ state.pause_reason }} (since {{ fmt(state.paused_at) }}). Overlays keep showing the last data they had.</p>
-            <form method="post" action="{{ url_for('admin_resume') }}">
-                <button class="go" type="submit">Resume queries</button>
-            </form>
-        {% else %}
-            <div class="status active">Challonge queries active</div>
-            <p>Auto-pauses in <strong>{{ idle_left }}</strong> unless the Challonge data changes.</p>
-            <form method="post" action="{{ url_for('admin_pause') }}">
-                <button class="stop" type="submit">Pause now</button>
-            </form>
-        {% endif %}
-    </div>
+    <header class="strip">
+        <div class="brand">MatchManager</div>
+        <div class="query">
+            <span class="dot" id="query-dot"></span>
+            <strong id="query-label"></strong>
+            <span class="muted" id="query-detail"></span>
+        </div>
+        <button type="button" class="btn" id="pause"></button>
+        <div class="muted" id="calls"></div>
+        <div class="spacer"></div>
+        <div class="onair" id="onair">
+            <span class="tag" id="onair-tag">ON AIR</span>
+            <strong class="ellipsis" id="onair-tournament"></strong>
+            <span class="ellipsis" id="onair-screen" style="color: var(--soft)"></span>
+            <span class="ellipsis mono" id="onair-match" style="color: var(--soft)"></span>
+        </div>
+        <div class="obs">
+            <span class="muted">OBS</span>
+            <span class="mono ellipsis" id="live-url"></span>
+            <button type="button" class="copy" id="live-copy" aria-label="Copy the OBS URL">Copy</button>
+        </div>
+    </header>
 
-    <div class="card">
-        <dl>
-            <dt>Last data change</dt><dd>{{ fmt(state.last_change) }}</dd>
-            <dt>Last Challonge fetch</dt><dd>{{ fmt(state.last_fetch) }}</dd>
-            <dt>Challonge calls</dt><dd>{{ state.api_calls }} since {{ fmt(state.started) }}</dd>
-        </dl>
-    </div>
+    <main>
+        <div id="config-msg"></div>
+        <div id="rows"></div>
 
-    <div class="card">
-        <h2>Tournaments</h2>
-        {% if msg %}<p class="msg {{ 'bad' if err else 'good' }}">{{ msg }}</p>{% endif %}
-        {% if config_error %}<p class="msg bad">{{ config_error }}</p>{% endif %}
-        {% if tournaments %}
-            <table>
-                <tr><th>Tournament</th><th>VS bar ring</th><th></th></tr>
-                {% for t in tournaments %}
-                <tr>
-                    <td><strong>{{ t.name or t.slug }}</strong>{% if t.name %}<br><span class="note">{{ t.slug }}</span>{% endif %}</td>
-                    <td>
-                        <form class="inline" method="post" action="{{ url_for('admin_set_ring') }}">
-                            <input type="hidden" name="slug" value="{{ t.slug }}">
-                            <input class="ring" type="number" name="ring" min="1" max="99" value="{{ t.ring or '' }}" placeholder="none">
-                            <button class="small stop" type="submit">Set</button>
-                        </form>
-                    </td>
-                    <td>
-                        <form method="post" action="{{ url_for('admin_remove_tournament') }}"
-                              onsubmit='return confirm("Remove " + {{ (t.name or t.slug) | tojson }} + " from the overlays?")'>
-                            <input type="hidden" name="slug" value="{{ t.slug }}">
-                            <button class="small remove" type="submit">Remove</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
-        {% else %}
-            <p class="note">No tournaments yet. The overlays will be empty until you add one.</p>
-        {% endif %}
-
-        <form class="add" method="post" action="{{ url_for('admin_add_tournament') }}">
-            <label>Challonge tournament ID or URL
-                <input type="text" name="tournament" placeholder="e.g. challonge.com/MyTournament" required>
+        <form class="add" id="add">
+            <label class="field" style="flex: 1 1 280px">Add tournament: Challonge ID or URL
+                <input type="text" name="tournament" placeholder="challonge.com/…" required>
             </label>
-            <label>VS bar ring
-                <input class="ring" type="number" name="ring" min="1" max="99" placeholder="none">
+            <label class="field">VS bar ring
+                <input type="number" name="ring" min="1" max="99" placeholder="none" style="width: 96px">
             </label>
-            <button class="go" type="submit">Add</button>
+            <button type="submit" class="primary">Add</button>
         </form>
-        <p class="note">Adding checks the tournament with Challonge (1 API request).
-            {% if not saved %}Changes are not saved on this server and will reset on restart.{% endif %}</p>
-    </div>
+        <p class="footnote" id="add-note">Adding checks the tournament with Challonge (1 API request).</p>
 
-    {% if tournaments %}
-    <div class="card">
-        <h2>Story screens</h2>
-        <p class="note">OBS browser source, 1920×1080. The plain link shows whatever you pick here; add
-            <code>/overview</code>, <code>/upset</code> or <code>/elimination</code> to lock it to one screen.</p>
-        {% for t in tournaments %}
-        {% set opts = screen_options[t.slug] %}
-        <form class="screen" method="post" action="{{ url_for('admin_set_screen') }}">
-            <input type="hidden" name="slug" value="{{ t.slug }}">
-            <strong>{{ t.name or t.slug }}</strong><br>
-            <a class="note" href="{{ url_for('story_screen', slug=t.slug) }}" target="_blank">{{ url_for('story_screen', slug=t.slug, _external=True) }}</a>
-            <label>Showing
-                <select name="screen_mode" onchange="this.form.submit()">
-                    {% for m in screen_modes %}
-                    <option value="{{ m }}" {{ 'selected' if (t.screen_mode or 'overview') == m }}>{{ {'overview': 'Overview', 'upset': 'Upset watch', 'elimination': 'Elimination match'}[m] }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            {% for key, title, auto_key in [('pinned_upset', 'Upset match', 'auto_upset'), ('pinned_elimination', 'Elimination match', 'auto_elimination')] %}
-            {% if opts %}
-            {% set auto = opts.matches | selectattr('id', 'equalto', opts[auto_key]) | first %}
-            <label>{{ title }}
-                <select name="{{ key }}" onchange="this.form.submit()">
-                    <option value="">Auto{{ ' (' ~ auto.label ~ ')' if auto else ' (nothing ready)' }}</option>
-                    {% for m in opts.matches %}
-                    <option value="{{ m.id }}" {{ 'selected' if t[key] == m.id }}>{{ m.label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            {% else %}
-            <input type="hidden" name="{{ key }}" value="{{ t[key] or '' }}">
-            {% endif %}
-            {% endfor %}
-            {% if not opts %}
-            <p class="note">Match choices show up once an overlay or story screen has loaded this tournament
-                {%- if t.pinned_upset or t.pinned_elimination %} (a match is pinned){% endif %}.</p>
-            {% endif %}
-        </form>
-        {% endfor %}
-    </div>
-    {% endif %}
+        <section class="panel" id="colours-panel">
+            <h2>Bracket colours</h2>
+            <div class="grid-head"><span>Tournament</span><span>Background</span><span>Title</span><span>Round header</span></div>
+            <div id="colours"></div>
+        </section>
 
-    <p class="note">Auto-pause after {{ idle_pause }} with no changes. This page refreshes every 30 seconds.
-        Counts reset when the server restarts, and a restarted server starts with queries active.</p>
-</main>
+        <section class="panel">
+            <h2>All URLs</h2>
+            <div id="urls"></div>
+        </section>
+
+        <p class="footnote" id="footnote"></p>
+    </main>
+
+    <div class="toast" id="toast" role="alert" hidden></div>
+
 <script>
-    // Refresh the status every 30 seconds, but never while you're typing in a form.
-    setInterval(function () {
-        var busy = Array.from(document.querySelectorAll('input[type=text], input.ring')).some(function (i) {
-            return i === document.activeElement || i.value !== i.defaultValue;
-        });
-        if (!busy) location.replace(location.pathname);
-    }, 30000);
+(function () {
+    let state = {{ state | tojson }};
+    const POLL_MS = 10000;
+    const SCREENS = [['overview', 'Overview'], ['upset', 'Upset watch'], ['elimination', 'Elimination']];
+    const DISPLAY = [['background_color', 'Background'], ['title_color', 'Title'], ['round_title_bg_color', 'Round header']];
+    const $ = id => document.getElementById(id);
+
+    function h(tag, attrs, ...children) {
+        const el = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs || {})) {
+            if (v === null || v === undefined || v === false) continue;
+            if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+            else if (k === 'class') el.className = v;
+            else if (k === 'html') el.innerHTML = v;  // only for the fixed icon SVGs below
+            else el.setAttribute(k, v === true ? '' : v);
+        }
+        for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c);
+        return el;
+    }
+
+    const ICONS = {
+        up: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg>',
+        down: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>',
+        x: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+    };
+
+    let toastTimer;
+    function toast(text) {
+        const el = $('toast');
+        el.textContent = text;
+        el.hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { el.hidden = true; }, 6000);
+    }
+
+    async function post(action, body) {
+        try {
+            const r = await fetch('/admin/api/' + action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body || {}),
+            });
+            const data = await r.json().catch(() => ({ error: `Server error (${r.status}).` }));
+            if (!r.ok || data.error) { toast(data.error || `Server error (${r.status}).`); return false; }
+            state = data;
+            render();
+            return true;
+        } catch (e) {
+            toast("Couldn't reach the server. Nothing was changed.");
+            return false;
+        }
+    }
+
+    function copyButton(btn, url) {
+        btn.onclick = () => {
+            try { navigator.clipboard.writeText(url); } catch (e) {}
+            btn.textContent = 'Copied';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+        };
+    }
+
+    function renderStrip() {
+        const s = state.status;
+        $('query-dot').className = 'dot' + (s.paused ? ' paused' : '');
+        $('query-label').textContent = s.paused ? 'Queries paused' : 'Queries active';
+        $('query-detail').textContent = s.paused ? `${s.pause_reason} (since ${s.paused_at})` : `Auto-pause in ${s.idle_left}`;
+        $('pause').textContent = s.paused ? 'Resume' : 'Pause';
+        $('pause').onclick = () => post(s.paused ? 'resume' : 'pause');
+        $('calls').textContent = `${s.api_calls} Challonge calls · last change ${s.last_change_time}`;
+        $('calls').title = `Calls counted since ${s.started}. Last data change ${s.last_change}.`;
+        $('paused-dot').classList.toggle('on', s.paused);
+
+        const live = state.live;
+        $('onair').classList.toggle('off', !live);
+        $('onair-tag').textContent = live ? 'ON AIR' : 'OFF AIR';
+        $('onair-tournament').textContent = live ? live.tournament : 'Nothing pushed yet';
+        $('onair-screen').textContent = live ? live.screen : '';
+        $('onair-match').textContent = live ? live.match : '';
+
+        const url = location.origin + '/live';
+        $('live-url').textContent = url;
+        copyButton($('live-copy'), url);
+    }
+
+    function tile(t, mode, label) {
+        const live = state.live;
+        const isOverview = mode === 'overview';
+        const choices = isOverview ? [] : t.choices[mode];
+        const empty = !isOverview && !choices.length;
+        const pick = isOverview ? null : t.picks[mode];
+        const effective = isOverview ? null : (pick ?? (choices[0] && choices[0].id));
+        const liveHere = live && live.slug === t.slug && live.mode === mode;
+        const onAir = liveHere && (isOverview || live.match_id === effective);
+        const pending = liveHere && !onAir;
+
+        let control;
+        if (isOverview) {
+            control = h('div', { class: 'tile-note' }, 'Bracket at a glance');
+        } else if (empty) {
+            control = h('div', { class: 'tile-empty' }, 'Nothing ready');
+        } else {
+            control = h('select', {
+                'aria-label': `${label} match for ${t.name}`,
+                onchange: e => post('pick', { slug: t.slug, mode, match_id: e.target.value || null }),
+            }, choices.map((c, i) => h('option', {
+                value: i === 0 ? '' : String(c.id),
+                selected: (i === 0 ? pick === null || pick === c.id : pick === c.id),
+            }, (i === 0 ? '*' : '') + c.label)));
+        }
+        return h('div', { class: 'tile' + (onAir ? ' onair-tile' : '') + (pending ? ' pending' : '') },
+            h('div', { class: 'tile-head' },
+                h('span', { class: 'tile-label' }, label),
+                onAir && h('span', { class: 'tile-tag' }, 'ON AIR'),
+                pending && h('span', { class: 'tile-changed' }, 'Changed · press GO')),
+            h('div', { class: 'tile-body' }, control,
+                h('button', {
+                    type: 'button', class: 'go', disabled: empty,
+                    'aria-label': `Put ${label} for ${t.name} on air`,
+                    onclick: () => post('go', { slug: t.slug, mode, match_id: effective }),
+                }, onAir ? 'LIVE' : 'GO')));
+    }
+
+    function row(t, i, all) {
+        const isLive = state.live && state.live.slug === t.slug;
+        const started = t.status === 'In progress';
+        return h('section', { class: 'row' + (isLive ? ' live' : '') },
+            h('div', { class: 'meta' },
+                h('div', { class: 'order' },
+                    h('button', { type: 'button', class: 'icon', html: ICONS.up, disabled: i === 0, 'aria-label': `Move ${t.name} up`,
+                                  onclick: () => post('move', { slug: t.slug, step: -1 }) }),
+                    h('button', { type: 'button', class: 'icon', html: ICONS.down, disabled: i === all.length - 1, 'aria-label': `Move ${t.name} down`,
+                                  onclick: () => post('move', { slug: t.slug, step: 1 }) })),
+                h('div', { class: 'info' },
+                    h('div', { class: 'name' }, t.name),
+                    h('div', { class: 'slug ellipsis' }, t.slug),
+                    h('div', { class: 'tags' },
+                        h('span', { class: 'status' + (started ? ' on' : '') }, t.status),
+                        h('label', { class: 'ring' }, 'VS ring',
+                            h('input', { type: 'number', min: 1, max: 99, placeholder: '–', value: t.ring ?? '',
+                                         'aria-label': `VS bar ring for ${t.name}`,
+                                         onchange: e => post('ring', { slug: t.slug, ring: e.target.value }) }))))),
+            h('div', { class: 'screens' }, SCREENS.map(([mode, label]) => tile(t, mode, label))),
+            h('button', { type: 'button', class: 'icon remove', html: ICONS.x, 'aria-label': `Remove ${t.name}`,
+                          onclick: () => { if (confirm(`Remove ${t.name} from the overlays?`)) post('remove', { slug: t.slug }); } }));
+    }
+
+    function colourRow(t) {
+        return h('div', { class: 'colour-row' },
+            h('span', { class: 'ellipsis', style: 'font-size: 14px' }, t.name),
+            DISPLAY.map(([key, label]) => {
+                const value = t.display[key];
+                return h('label', { class: 'swatch' },
+                    h('input', { type: 'color', value: value.toLowerCase(), 'aria-label': `${label} colour for ${t.name}`,
+                                 onchange: e => post('display', { slug: t.slug, key, value: e.target.value }) }),
+                    h('span', { class: 'mono muted' }, value));
+            }));
+    }
+
+    function urlRow(path, label) {
+        const url = location.origin + path;
+        const btn = h('button', { type: 'button', class: 'copy', 'aria-label': `Copy the ${label} URL` }, 'Copy');
+        copyButton(btn, url);
+        return h('div', { class: 'url-row' },
+            h('span', { class: 'label' }, label),
+            h('a', { class: 'mono ellipsis', href: url, target: '_blank', rel: 'noopener' }, url),
+            btn);
+    }
+
+    function renderUrls() {
+        const groups = [
+            ['OBS sources', [
+                ['/live', 'Story screens (follows GO)'],
+                ['/vsbar', 'VS bar (same as ring 1)'],
+                ...state.rings.map(n => ['/vsbar/' + n, 'VS bar, ring ' + n]),
+                ['/current_matches', 'Current matches'],
+                ['/filtered_matches', 'Next match per robot'],
+            ]],
+            ['Data feeds', [
+                ['/matches_data.json', 'All matches'],
+                ['/pending_matches.json', 'Pending matches'],
+                ['/open_matches.json', 'Open matches'],
+                ['/filtered_matches.json', 'Next match per robot'],
+            ]],
+            ['Admin', [['/admin', 'This page']]],
+        ];
+        $('urls').replaceChildren(...groups.flatMap(([title, items]) => [
+            h('div', { class: 'group-title' }, title),
+            ...items.map(([path, label]) => urlRow(path, label)),
+        ]));
+    }
+
+    function render() {
+        renderStrip();
+        $('config-msg').replaceChildren(state.config_error ? h('div', { class: 'msg' }, state.config_error) : '');
+        const ts = state.tournaments;
+        $('rows').replaceChildren(...(ts.length
+            ? ts.map(row)
+            : [h('div', { class: 'empty-list' }, 'No tournaments yet. Add one below.')]));
+        $('rows').style.cssText = 'display: flex; flex-direction: column; gap: 12px';
+        $('colours-panel').hidden = !ts.length;
+        $('colours').replaceChildren(...ts.map(colourRow));
+        renderUrls();
+        $('add-note').textContent = 'Adding checks the tournament with Challonge (1 API request).'
+            + (state.saved ? '' : ' Changes are not saved on this server and will reset on restart.');
+        $('footnote').textContent = `Queries auto-pause after ${state.status.idle_pause} with no changes. `
+            + 'Counts reset when the server restarts, and a restarted server starts with queries active.';
+    }
+
+    $('add').addEventListener('submit', async e => {
+        e.preventDefault();
+        const form = e.target, btn = form.querySelector('button');
+        btn.disabled = true;
+        const ok = await post('add', { tournament: form.tournament.value, ring: form.ring.value });
+        btn.disabled = false;
+        if (ok) form.reset();
+    });
+
+    // Background refresh. Skip it while you're in the middle of a dropdown or field so it never yanks it away.
+    function busy() {
+        const a = document.activeElement;
+        return a && a.matches('select, input') && !a.closest('#add');
+    }
+    async function poll() {
+        try {
+            const r = await fetch('/admin/api/state', { cache: 'no-store' });
+            if (!r.ok) return;
+            const data = await r.json();
+            if (!busy()) { state = data; render(); }
+        } catch (e) { /* keep showing the last state */ }
+    }
+
+    render();
+    poll();
+    setInterval(poll, POLL_MS);
+})();
 </script>
 </body>
 </html>

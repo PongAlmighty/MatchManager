@@ -253,25 +253,30 @@ def build_coming_up(b, limit, skip_id=None, with_round=False):
     return out
 
 
-def pick_upset(b):
-    """Ready match featuring the robot most out-performing its seed; else the hottest record."""
-    best, best_key = None, None
-    for m in b.ready():
+def rank_upsets(b):
+    """Ready matches, best upset story first: the robot most out-performing its seed, then the hottest record."""
+    def key(m):
         robots = (m['player1_id'], m['player2_id'])
         upsets = max(b.upset_wins(pid) for pid in robots)
         overachieve = max(sum(max(0, (b.player(pid)['seed'] or 0) - (p['seed'] or 0)) for p in b.beaten(pid)) for pid in robots)
         wins = sum(b.record(pid)[0] for pid in robots)
-        key = (upsets, overachieve, wins)
-        if best_key is None or key > best_key:
-            best, best_key = m, key
-    return best
+        return (upsets, overachieve, wins)
+    return sorted(b.ready(), key=key, reverse=True)
+
+
+def rank_eliminations(b):
+    """Ready matches that send the loser home, in play order."""
+    return [m for m in b.ready() if b.eliminates(m) and not b.is_reset(m)]
+
+
+def pick_upset(b):
+    ranked = rank_upsets(b)
+    return ranked[0] if ranked else None
 
 
 def pick_elimination(b):
-    for m in b.ready():
-        if b.eliminates(m) and not b.is_reset(m):
-            return m
-    return None
+    ranked = rank_eliminations(b)
+    return ranked[0] if ranked else None
 
 
 def _robot_story(b, m, pid, mode):
@@ -326,8 +331,11 @@ def build_story(b, m, mode):
 
 
 def build_screen_data(tournament_name, matches, participants, tournament_type, mode,
-                      pinned_match_id=None, now=None, background='#00ff00'):
-    """Return everything the story screen needs. Falls back to overview if no match fits."""
+                      pinned_match_id=None, now=None, background='#00ff00', strict=False):
+    """Return everything the story screen needs. Falls back to overview if no match fits.
+
+    With strict, a pinned match that is no longer ready falls back to overview instead of the auto pick,
+    so what's on air never switches to a different fight on its own."""
     b = Bracket(matches, participants, tournament_type, now)
     data = {'tournament_name': tournament_name, 'background': background, 'mode': 'overview', 'story': None}
     featured = None
@@ -335,6 +343,8 @@ def build_screen_data(tournament_name, matches, participants, tournament_type, m
         pinned = b.by_id.get(pinned_match_id) if pinned_match_id else None
         if pinned and pinned in b.ready():
             featured = pinned
+        elif strict and pinned_match_id:
+            featured = None
         else:
             featured = pick_upset(b) if mode == 'upset' else pick_elimination(b)
     if featured:
@@ -348,13 +358,39 @@ def build_screen_data(tournament_name, matches, participants, tournament_type, m
     return data
 
 
-def ready_match_options(matches, participants, tournament_type):
-    """Ready matches for the admin pin dropdown, plus which ones the app would pick."""
+def match_label(b, m):
+    """Short dropdown label: 'Gremlin/Hexcavator 14/3 W3'."""
+    p1, p2 = b.player(m['player1_id']), b.player(m['player2_id'])
+    seeds = f' {p1["seed"]}/{p2["seed"]}' if p1['seed'] and p2['seed'] else ''
+    if b.is_grand_final(m):
+        tag = 'GF'
+    elif m['round'] < 0:
+        tag = f'L{-m["round"]}'
+    else:
+        tag = f'W{m["round"]}' if b.double else f'R{m["round"]}'
+    return f'{p1["name"]}/{p2["name"]}{seeds} {tag}'
+
+
+def match_choices(matches, participants, tournament_type, pins=None, limit=3):
+    """Top suggestions per story screen for the admin dropdowns, best (the auto pick) first.
+
+    A pinned match that is still ready stays in its list even if it has dropped out of the top few.
+    """
     b = Bracket(matches, participants, tournament_type)
-    upset, elim = pick_upset(b), pick_elimination(b)
-    return {
-        'matches': [{'id': m['id'], 'label': f'{b.round_short(m)} · {b.player(m["player1_id"])["name"]} vs {b.player(m["player2_id"])["name"]}'}
-                    for m in b.ready()],
-        'auto_upset': upset['id'] if upset else None,
-        'auto_elimination': elim['id'] if elim else None,
-    }
+    pins = pins or {}
+    ready_ids = {m['id'] for m in b.ready()}
+    out = {}
+    for mode, ranked in (('upset', rank_upsets(b)), ('elimination', rank_eliminations(b))):
+        top = ranked[:limit]
+        pinned = b.by_id.get(pins.get(mode))
+        if pinned and pinned['id'] in ready_ids and pinned not in top:
+            top.append(pinned)
+        out[mode] = [{'id': m['id'], 'label': match_label(b, m)} for m in top]
+    return out
+
+
+def describe_match(matches, participants, tournament_type, match_id):
+    """Label for any match by id, or None."""
+    b = Bracket(matches, participants, tournament_type)
+    m = b.by_id.get(match_id)
+    return match_label(b, m) if m and m.get('player1_id') and m.get('player2_id') else None

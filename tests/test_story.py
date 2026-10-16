@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from story import Bracket, build_screen_data, pick_elimination, pick_upset, ready_match_options
+from story import Bracket, build_screen_data, describe_match, match_choices, pick_elimination, pick_upset
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
 A, B, C, D = 11, 12, 13, 14
@@ -142,8 +142,31 @@ def test_no_ready_story_match_falls_back_to_overview():
     assert single['story'] is None
 
 
-def test_ready_match_options_labels():
-    options = ready_match_options(bracket_after_round_one(), PARTICIPANTS, 'double elimination')
-    assert options['matches'][0]['label'] == 'WR2 · Alpha vs Charlie'
-    assert options['auto_upset'] == 3
-    assert options['auto_elimination'] == 4
+def test_match_choices_labels_and_order():
+    choices = match_choices(bracket_after_round_one(), PARTICIPANTS, 'double elimination')
+    assert choices['upset'] == [{'id': 3, 'label': 'Alpha/Charlie 1/3 W2'}, {'id': 4, 'label': 'Delta/Bravo 4/2 L1'}]
+    assert choices['elimination'] == [{'id': 4, 'label': 'Delta/Bravo 4/2 L1'}]
+
+
+def test_match_choices_limit_keeps_pinned_match():
+    choices = match_choices(bracket_after_round_one(), PARTICIPANTS, 'double elimination', limit=1)
+    assert [c['id'] for c in choices['upset']] == [3]
+    pinned = match_choices(bracket_after_round_one(), PARTICIPANTS, 'double elimination',
+                           pins={'upset': 4}, limit=1)
+    assert [c['id'] for c in pinned['upset']] == [3, 4]
+
+
+def test_describe_match():
+    assert describe_match(bracket_after_round_one(), PARTICIPANTS, 'double elimination', 3) == 'Alpha/Charlie 1/3 W2'
+    assert describe_match(bracket_after_round_one(), PARTICIPANTS, 'double elimination', 5) is None
+
+
+def test_strict_pin_falls_back_to_overview_not_auto():
+    done = bracket_after_round_one()
+    done[3] = match(4, -1, D, B, pre1=1, pre2=2, loser1=True, loser2=True, winner=B, completed='2026-10-18T11:55:00Z', order=4)
+    data = build_screen_data('Test Cup', done, PARTICIPANTS, 'double elimination', 'upset',
+                             pinned_match_id=4, now=NOW, strict=True)
+    assert data['mode'] == 'overview'
+    loose = build_screen_data('Test Cup', done, PARTICIPANTS, 'double elimination', 'upset',
+                              pinned_match_id=4, now=NOW)
+    assert loose['mode'] == 'upset'

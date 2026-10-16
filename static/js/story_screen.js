@@ -1,4 +1,4 @@
-// Draws the 1920x1080 story screens (overview, upset watch, elimination) from /screen/<slug>/data.
+// Draws the 1920x1080 story screens (overview, upset watch, elimination) from /live/data.
 // The lower-right 640x360 corner is always left as bare background for the switcher's video inset.
 (function () {
   const W = 1920, H = 1080;
@@ -13,6 +13,7 @@
 
   function layout(data) {
     const boxes = [], ribbons = [], overlays = [];
+    if (data.blank) return { boxes, ribbons, overlays };
     const box = (x, y, w, h, o) => boxes.push(Object.assign({ x, y, w, h, bg: '#2c2c2c', fg: '#ffffff', fs: 18, fw: 700, text: '', extra: '', xfs: '0.8em', xfg: 'inherit', pad: '0 14px', radius: '6px', justify: 'space-between' }, o));
     const pill = (x, y, w, text, h = 36, fs = 18) => box(x, y, w, h, { text, fs, justify: 'center' });
     const robot = (x, y, w, h, seed, name, o = {}) => box(x, y, w, h, Object.assign({ bg: colorOf(seed), text: name }, o));
@@ -162,9 +163,23 @@
     start(stage, url, intervalMs) {
       fit(stage);
       window.addEventListener('resize', () => fit(stage));
+      // Fade only when a different screen is pushed; plain data refreshes redraw in place.
+      const FADE_MS = 150;
+      stage.style.transition = `opacity ${FADE_MS}ms ease`;
+      let lastJson = null, lastKey = null;
+      const show = data => {
+        const json = JSON.stringify(data);
+        if (json === lastJson) return;
+        const changed = lastKey !== null && data.key !== lastKey;
+        lastJson = json;
+        lastKey = data.key;
+        if (!changed) return render(stage, data);
+        stage.style.opacity = 0;
+        setTimeout(() => { render(stage, data); stage.style.opacity = 1; }, FADE_MS);
+      };
       const load = () => fetch(url, { cache: 'no-store' })
         .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-        .then(data => render(stage, data))
+        .then(show)
         .catch(err => console.error('[story-screen] refresh failed, keeping last frame', err));
       load();
       setInterval(load, intervalMs);

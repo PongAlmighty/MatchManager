@@ -14,7 +14,7 @@ import pytz
 import requests
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
 
-from story import SCREEN_MODES, build_screen_data, ready_match_options
+from story import SCREEN_MODES, build_screen_data, describe_match, match_choices
 
 app = Flask(__name__)
 NEXT_MATCH_START = timedelta(minutes=1)
@@ -24,18 +24,23 @@ UserName = os.environ["CHALLONGE_USERNAME"]
 APIKey = os.environ["CHALLONGE_API_KEY"]
 challonge.set_credentials(UserName, APIKey)
 
-# Tournaments and their vsbar rings are managed from /admin and saved as a JSON file in
-# Cloud Storage (CONFIG_BUCKET) so they survive restarts. Without CONFIG_BUCKET (local runs)
-# they live in memory only and start from DEFAULT_TOURNAMENTS.
+# Tournaments, their vsbar rings, story screen picks and bracket colours are managed from /admin,
+# along with what /live is showing. They're saved as a JSON file in Cloud Storage (CONFIG_BUCKET)
+# so they survive restarts. Without CONFIG_BUCKET (local runs) they live in memory only and
+# start from DEFAULT_TOURNAMENTS.
 DEFAULT_TOURNAMENTS = [{"slug": "PongsTestTournament01", "ring": 1, "name": ""}]
+DEFAULT_DISPLAY = {"background_color": "#00ff00", "title_color": "#FFFFFF", "round_title_bg_color": "#2C2C2C"}
 CONFIG_BUCKET = os.environ.get("CONFIG_BUCKET", "")
 CONFIG_OBJECT = "tournaments.json"
 GCS_TOKEN_URL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
-tournaments = []  # [{"slug": ..., "ring": int or None, "name": ...}], in display order
+# [{"slug", "ring": int or None, "name", "pinned_upset", "pinned_elimination", "display": {...}}], in display order
+tournaments = []
 tournament_ids = []
 RING_TOURNAMENTS = {}  # vsbar ring number -> tournament slugs on that ring
+live = None  # what /live shows: {"slug", "mode", "match_id"}, or None for a blank screen
 config_error = ""
 _config_lock = threading.Lock()
+_UNCHANGED = object()
 
 
 def _gcs_headers():
@@ -64,16 +69,21 @@ def _gcs_write(data):
     ).raise_for_status()
 
 
-def set_tournaments(new, save=True):
-    """Replace the tournament list. Saves first, so a failed save leaves things as they were."""
-    global tournaments, tournament_ids, RING_TOURNAMENTS
+def set_config(new_tournaments=None, new_live=_UNCHANGED, save=True):
+    """Replace the tournament list and/or what's live. Saves first, so a failed save leaves things as they were."""
+    global tournaments, tournament_ids, RING_TOURNAMENTS, live
+    new_tournaments = tournaments if new_tournaments is None else new_tournaments
+    new_live = live if new_live is _UNCHANGED else new_live
+    if new_live and new_live["slug"] not in {t["slug"] for t in new_tournaments}:
+        new_live = None
     if save and CONFIG_BUCKET:
-        _gcs_write(new)
+        _gcs_write({"tournaments": new_tournaments, "live": new_live})
     rings = {}
-    for t in new:
+    for t in new_tournaments:
         if t.get("ring"):
             rings.setdefault(t["ring"], []).append(t["slug"])
-    tournaments, tournament_ids, RING_TOURNAMENTS = new, [t["slug"] for t in new], rings
+    tournaments, tournament_ids, RING_TOURNAMENTS = new_tournaments, [t["slug"] for t in new_tournaments], rings
+    live = new_live
 
 
 def load_tournaments():
@@ -85,7 +95,11 @@ def load_tournaments():
         except Exception as e:
             config_error = f"Couldn't load saved tournaments ({e}). Using the defaults until you change the list."
             print(config_error)
-    set_tournaments(data if data is not None else [dict(t) for t in DEFAULT_TOURNAMENTS], save=False)
+    if isinstance(data, list):  # saved before /live existed
+        data = {"tournaments": data, "live": None}
+    if data is None:
+        data = {"tournaments": [dict(t) for t in DEFAULT_TOURNAMENTS], "live": None}
+    set_config(data["tournaments"], data.get("live"), save=False)
 
 
 def parse_tournament_id(text):
@@ -440,190 +454,290 @@ def require_admin(view):
     return wrapped
 
 
+SCREEN_LABELS = {"overview": "Overview", "upset": "Upset watch", "elimination": "Elimination"}
+STATUS_LABELS = {"pending": "Not started", "complete": "Complete"}
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def fmt(t):
+    return t.strftime("%b %d, %I:%M:%S %p %Z") if t else "never"
+
+
+def tournament_data(slug, fresh):
+    """(info, bracket) for one tournament. fresh may call Challonge through the shared cache; otherwise cached data only."""
+    if fresh:
+        try:
+            return (cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug)),
+                    cached(("bracket", slug), lambda: fetch_bracket(slug)))
+        except Exception as e:
+            print(f"Couldn't load {slug} for the admin page: {e}")
+    return peek(("tournament", slug)), peek(("bracket", slug))
+
+
+def admin_state(fresh=True):
+    """Everything the admin page shows, as JSON-ready data."""
+    now = datetime.now(timezone)
+    idle_left = None
+    if not _state["paused"]:
+        idle_left = str(max(IDLE_PAUSE - (now - _state["last_change"]), timedelta(0))).split(".")[0]
+    rows, live_info = [], None
+    for t in tournaments:
+        slug = t["slug"]
+        info, bracket = tournament_data(slug, fresh)
+        pins = {"upset": t.get("pinned_upset"), "elimination": t.get("pinned_elimination")}
+        choices = {"upset": [], "elimination": []}
+        if info and bracket:
+            try:
+                choices = match_choices(bracket["matches"], bracket["participants"], info.get("tournament_type"), pins)
+            except Exception as e:
+                print(f"Couldn't list story screen matches for {slug}: {e}")
+        # A pin that's no longer offered (the match was fought) means auto again.
+        picks = {mode: pins[mode] if any(c["id"] == pins[mode] for c in choices[mode]) else None for mode in choices}
+        name = t.get("name") or (info or {}).get("name") or slug
+        rows.append({
+            "slug": slug,
+            "name": name,
+            "ring": t.get("ring"),
+            "status": STATUS_LABELS.get(info.get("state"), "In progress") if info else "Waiting for data",
+            "display": {**DEFAULT_DISPLAY, **t.get("display", {})},
+            "choices": choices,
+            "picks": picks,
+        })
+        if live and live["slug"] == slug:
+            label = ""
+            if live.get("match_id") and info and bracket:
+                label = describe_match(bracket["matches"], bracket["participants"], info.get("tournament_type"),
+                                       live["match_id"]) or ""
+            live_info = {**live, "tournament": name, "screen": SCREEN_LABELS[live["mode"]], "match": label}
+    return {
+        "status": {
+            "paused": _state["paused"],
+            "pause_reason": _state["pause_reason"],
+            "paused_at": fmt(_state["paused_at"]),
+            "idle_left": idle_left,
+            "idle_pause": str(IDLE_PAUSE),
+            "api_calls": _state["api_calls"],
+            "started": fmt(_state["started"]),
+            "last_change": fmt(_state["last_change"]),
+            "last_change_time": _state["last_change"].strftime("%-I:%M %p"),
+        },
+        "live": live_info,
+        "tournaments": rows,
+        "rings": sorted(RING_TOURNAMENTS),
+        "config_error": config_error,
+        "saved": bool(CONFIG_BUCKET),
+    }
+
+
 @app.route("/admin")
 @require_admin
 def admin():
-    now = datetime.now(timezone)
-
-    def fmt(t):
-        return t.strftime("%b %d, %I:%M:%S %p %Z") if t else "never"
-
-    idle_left = None
-    if not _state["paused"]:
-        idle_left = max(IDLE_PAUSE - (now - _state["last_change"]), timedelta(0))
-    return render_template(
-        "admin.html",
-        state=_state,
-        fmt=fmt,
-        idle_left=str(idle_left).split(".")[0] if idle_left is not None else None,
-        idle_pause=IDLE_PAUSE,
-        tournaments=tournaments,
-        screen_modes=SCREEN_MODES,
-        screen_options={t["slug"]: screen_options(t["slug"]) for t in tournaments},
-        msg=request.args.get("msg", ""),
-        err=request.args.get("err") == "1",
-        config_error=config_error,
-        saved=bool(CONFIG_BUCKET),
-    )
+    return render_template("admin.html", state=admin_state(fresh=False))
 
 
-def back_to_admin(msg, err=False):
-    return redirect(url_for("admin", msg=msg, err="1" if err else None))
+@app.route("/admin/api/state")
+@require_admin
+def admin_api_state():
+    # The open admin page polls this, which keeps the Challonge data fresh (unless queries are paused).
+    return jsonify(admin_state())
+
+
+class AdminError(Exception):
+    pass
+
+
+def admin_action(view):
+    """JSON admin endpoint: runs the change under the config lock and answers with the new page state."""
+    @wraps(view)
+    def wrapped():
+        try:
+            with _config_lock:
+                view(request.get_json(silent=True) or {})
+        except AdminError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception as e:
+            print(f"Admin change failed: {e}")
+            return jsonify({"error": f"Couldn't save the change: {e}"}), 500
+        return jsonify(admin_state(fresh=False))
+
+    return wrapped
+
+
+def find_tournament(slug):
+    t = next((t for t in tournaments if t["slug"] == slug), None)
+    if t is None:
+        raise AdminError(f"{slug} isn't on the list.")
+    return t
+
+
+def update_tournament(slug, **changes):
+    find_tournament(slug)
+    set_config([dict(t, **changes) if t["slug"] == slug else t for t in tournaments])
 
 
 def parse_ring(value):
-    value = (value or "").strip()
+    value = str(value if value is not None else "").strip()
     if not value:
         return None
     if not value.isdigit() or not 1 <= int(value) <= 99:
-        raise ValueError("Ring must be a number from 1 to 99, or blank for none.")
+        raise AdminError("Ring must be a number from 1 to 99, or blank for none.")
     return int(value)
 
 
-@app.route("/admin/tournaments/add", methods=["POST"])
+def parse_match_id(value):
+    if value in (None, ""):
+        return None
+    if not str(value).isdigit():
+        raise AdminError("Pick a match from the list.")
+    return int(value)
+
+
+def reserved_slugs():
+    """First path segments the app already uses, which a tournament ID can't take."""
+    return {r.rule.strip("/").split("/")[0].lower() for r in app.url_map.iter_rules()} - {""}
+
+
+@app.route("/admin/api/add", methods=["POST"])
 @require_admin
-def admin_add_tournament():
+@admin_action
+def admin_add_tournament(data):
     global config_error
-    slug = parse_tournament_id(request.form.get("tournament", ""))
+    slug = parse_tournament_id(data.get("tournament", ""))
     if not slug:
-        return back_to_admin("Enter a Challonge tournament ID or URL.", err=True)
-    try:
-        ring = parse_ring(request.form.get("ring"))
-    except ValueError as e:
-        return back_to_admin(str(e), err=True)
+        raise AdminError("Enter a Challonge tournament ID or URL.")
+    ring = parse_ring(data.get("ring"))
     if slug in tournament_ids:
-        return back_to_admin(f"{slug} is already on the list.", err=True)
+        raise AdminError(f"{slug} is already on the list.")
+    if slug.lower() in reserved_slugs():
+        raise AdminError(f"{slug} clashes with one of this app's own pages, so its bracket URL wouldn't work.")
     # One Challonge call to catch typos and get the tournament's name.
     try:
         info = api(challonge.tournaments.show, slug)
     except Exception as e:
-        return back_to_admin(f"Challonge couldn't find {slug}: {e}", err=True)
-    with _config_lock:
-        try:
-            set_tournaments(tournaments + [{"slug": slug, "ring": ring, "name": info.get("name", "")}])
-        except Exception as e:
-            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
-        config_error = ""
-    return back_to_admin(f"Added {info.get('name') or slug}.")
+        raise AdminError(f"Challonge couldn't find {slug}: {e}")
+    set_config(tournaments + [{"slug": slug, "ring": ring, "name": info.get("name", ""),
+                               "display": dict(DEFAULT_DISPLAY)}])
+    config_error = ""
 
 
-@app.route("/admin/tournaments/ring", methods=["POST"])
+@app.route("/admin/api/remove", methods=["POST"])
 @require_admin
-def admin_set_ring():
-    slug = request.form.get("slug", "")
-    try:
-        ring = parse_ring(request.form.get("ring"))
-    except ValueError as e:
-        return back_to_admin(str(e), err=True)
-    with _config_lock:
-        new = [dict(t, ring=ring) if t["slug"] == slug else t for t in tournaments]
-        try:
-            set_tournaments(new)
-        except Exception as e:
-            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
-    return back_to_admin(f"{slug} is now on {'ring ' + str(ring) if ring else 'no ring'}.")
-
-
-@app.route("/admin/tournaments/remove", methods=["POST"])
-@require_admin
-def admin_remove_tournament():
-    slug = request.form.get("slug", "")
-    with _config_lock:
-        try:
-            set_tournaments([t for t in tournaments if t["slug"] != slug])
-        except Exception as e:
-            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
+@admin_action
+def admin_remove_tournament(data):
+    slug = data.get("slug", "")
+    find_tournament(slug)
+    set_config([t for t in tournaments if t["slug"] != slug])
     with _cache_lock:
         _cache.pop(("tournament", slug), None)
         _cache.pop(("bracket", slug), None)
-    return back_to_admin(f"Removed {slug}.")
 
 
-@app.route("/admin/resume", methods=["POST"])
+@app.route("/admin/api/move", methods=["POST"])
 @require_admin
-def admin_resume():
-    resume()
-    return redirect(url_for("admin"))
+@admin_action
+def admin_move_tournament(data):
+    slug, step = data.get("slug", ""), data.get("step")
+    find_tournament(slug)
+    if step not in (-1, 1):
+        raise AdminError("Can only move a tournament up or down one place.")
+    order = list(tournaments)
+    i = next(i for i, t in enumerate(order) if t["slug"] == slug)
+    j = i + step
+    if 0 <= j < len(order):
+        order[i], order[j] = order[j], order[i]
+        set_config(order)
 
 
-@app.route("/admin/pause", methods=["POST"])
+@app.route("/admin/api/ring", methods=["POST"])
 @require_admin
-def admin_pause():
+@admin_action
+def admin_set_ring(data):
+    update_tournament(data.get("slug", ""), ring=parse_ring(data.get("ring")))
+
+
+@app.route("/admin/api/display", methods=["POST"])
+@require_admin
+@admin_action
+def admin_set_display(data):
+    slug, key, value = data.get("slug", ""), data.get("key"), data.get("value", "")
+    if key not in DEFAULT_DISPLAY or not HEX_COLOR.match(value):
+        raise AdminError("Pick a colour.")
+    display = {**DEFAULT_DISPLAY, **find_tournament(slug).get("display", {}), key: value}
+    update_tournament(slug, display=display)
+
+
+@app.route("/admin/api/pick", methods=["POST"])
+@require_admin
+@admin_action
+def admin_pick_match(data):
+    mode = data.get("mode")
+    if mode not in ("upset", "elimination"):
+        raise AdminError(f"Unknown story screen {mode}.")
+    update_tournament(data.get("slug", ""), **{f"pinned_{mode}": parse_match_id(data.get("match_id"))})
+
+
+@app.route("/admin/api/go", methods=["POST"])
+@require_admin
+@admin_action
+def admin_go_live(data):
+    slug, mode = data.get("slug", ""), data.get("mode")
+    if mode not in SCREEN_MODES:
+        raise AdminError(f"Unknown story screen {mode}.")
+    t = find_tournament(slug)
+    match_id = None
+    if mode != "overview":
+        match_id = parse_match_id(data.get("match_id"))
+        info, bracket = tournament_data(slug, fresh=True)
+        if match_id is None or not info or not bracket:
+            raise AdminError("Nothing is ready for that screen yet.")
+        # Only what that screen's dropdown offers, so an upset-only fight can't go out as an elimination.
+        pins = {"upset": t.get("pinned_upset"), "elimination": t.get("pinned_elimination")}
+        offered = match_choices(bracket["matches"], bracket["participants"], info.get("tournament_type"), pins)
+        if not any(c["id"] == match_id for c in offered[mode]):
+            raise AdminError("That fight isn't ready any more.")
+    set_config(new_live={"slug": slug, "mode": mode, "match_id": match_id})
+
+
+@app.route("/admin/api/pause", methods=["POST"])
+@require_admin
+@admin_action
+def admin_pause(data):
     with _cache_lock:
         pause("Paused from the admin page")
-    return redirect(url_for("admin"))
 
 
-@app.route("/admin/tournaments/screen", methods=["POST"])
+@app.route("/admin/api/resume", methods=["POST"])
 @require_admin
-def admin_set_screen():
-    slug = request.form.get("slug", "")
-    mode = request.form.get("screen_mode", "overview")
-    if mode not in SCREEN_MODES:
-        return back_to_admin(f"Unknown story screen {mode}.", err=True)
-    pins = {}
-    for key in ("pinned_upset", "pinned_elimination"):
-        value = request.form.get(key, "").strip()
-        if value and not value.isdigit():
-            return back_to_admin("Pick a match from the list.", err=True)
-        pins[key] = int(value) if value else None
-    with _config_lock:
-        new = [dict(t, screen_mode=mode, **pins) if t["slug"] == slug else t for t in tournaments]
-        try:
-            set_tournaments(new)
-        except Exception as e:
-            return back_to_admin(f"Couldn't save the tournament list: {e}", err=True)
-    return back_to_admin(f"{slug} story screen: {mode}.")
+@admin_action
+def admin_resume(data):
+    resume()
 
 
-def screen_options(slug):
-    """Pin choices for the admin page, from cached data only, so the admin page never spends quota."""
-    info, bracket = peek(("tournament", slug)), peek(("bracket", slug))
-    if not info or not bracket:
-        return None
-    try:
-        return ready_match_options(bracket["matches"], bracket["participants"], info.get("tournament_type"))
-    except Exception as e:
-        print(f"Couldn't list story screen matches for {slug}: {e}")
-        return None
+@app.route("/live")
+def live_screen():
+    """The one OBS browser source for story screens. Shows whatever was last pushed live from /admin."""
+    return render_template("story_screen.html", tournament_name="Live", background="#00ff00",
+                           data_url=url_for("live_data"), refresh_ms=1000)
 
 
-def screen_tournament(slug):
-    """The tournament config for a story screen; only tournaments on the admin list can be shown."""
-    t = next((t for t in tournaments if t["slug"] == slug), None)
-    if t is None:
-        abort(404)
-    return t
-
-
-@app.route("/screen/<slug>")
-@app.route("/screen/<slug>/<mode>")
-def story_screen(slug, mode=None):
-    """OBS browser source for the story screens. Without a mode it follows the admin page."""
-    t = screen_tournament(slug)
-    if mode is not None and mode not in SCREEN_MODES:
-        abort(404)
-    data_url = url_for("story_screen_data", slug=slug, mode=mode)
-    return render_template("story_screen.html", tournament_name=t.get("name") or slug,
-                           background="#00ff00", data_url=data_url, refresh_ms=30000)
-
-
-@app.route("/screen/<slug>/data")
-def story_screen_data(slug):
-    t = screen_tournament(slug)
-    mode = request.args.get("mode") or t.get("screen_mode") or "overview"
-    if mode not in SCREEN_MODES:
-        mode = "overview"
-    pinned = t.get("pinned_upset") if mode == "upset" else t.get("pinned_elimination")
+@app.route("/live/data")
+def live_data():
+    current = live
+    if not current:
+        return jsonify({"blank": True, "key": "", "background": "#00ff00"})
+    slug = current["slug"]
+    t = next((t for t in tournaments if t["slug"] == slug), {})
     try:
         info = cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug))
         bracket = cached(("bracket", slug), lambda: fetch_bracket(slug))
-        return jsonify(build_screen_data(info.get("name") or t.get("name") or slug, bracket["matches"],
-                                         bracket["participants"], info.get("tournament_type"), mode,
-                                         pinned_match_id=pinned))
+        data = build_screen_data(info.get("name") or t.get("name") or slug, bracket["matches"],
+                                 bracket["participants"], info.get("tournament_type"), current["mode"],
+                                 pinned_match_id=current.get("match_id"), strict=True)
     except Exception as e:
-        print(f"Failed to build story screen for {slug}: {e}")
+        print(f"Failed to build the live story screen for {slug}: {e}")
         return jsonify({"error": str(e)}), 503
+    data["key"] = f'{slug}:{current["mode"]}:{current.get("match_id")}'
+    return jsonify(data)
 
 
 @app.route("/styles.css")

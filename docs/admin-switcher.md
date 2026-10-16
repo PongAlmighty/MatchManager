@@ -20,7 +20,7 @@ Layout A (status strip on top) is the chosen design.
 
 ## Tournament rows
 
-- One row per tournament, reorderable, removable (with a confirm).
+- One row per tournament, reorderable with up/down buttons, removable (with a confirm).
 - Each row: name, Challonge ID, status (In progress / Not started), VS bar ring.
 - Three screens per row, each with its own GO button:
   - Overview: no settings.
@@ -33,6 +33,7 @@ Layout A (status strip on top) is the chosen design.
 - Nothing on air changes until GO is pressed. Changing the dropdown on the live screen marks it "Changed · press GO".
 - The on-air screen and its row are highlighted; the top strip shows what's on air.
 - When the bracket moves on, the dropdown re-ranks its suggestions but what's on air stays put until GO.
+- If the fight that's on air finishes, `/live` falls back to that tournament's Overview rather than picking a different fight on its own.
 - No clear/blank button: taking it off air is done in the video switcher.
 
 ## Status strip (top)
@@ -55,5 +56,4 @@ Layout A (status strip on top) is the chosen design.
 
 ## Build notes
 
-- `pick_upset` / `pick_elimination` in `story.py` return one match each; they need to rank the top 3.
 - Brackinator port: the bracket views (double elim, round robin/Swiss, group stage, three-competitor, podium), the SVG connector script and `match_container.html`. Read from the shared `("bracket", slug)` cache instead of calling Challonge on every page load. Colours move from Brackinator's SQLite `display_settings` into tournaments.json. Enable `jinja2.ext.do`. Skip Brackinator's admin page, CORS and dead templates.
