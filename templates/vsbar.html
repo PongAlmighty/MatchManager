@@ -22,5 +22,21 @@
     <!--<div class="small-timeBox">
         <!-- Other content can go here if needed 
     </div> -->
+<script>
+    // Stay current on its own: re-read this page every 20 seconds and swap in the new names.
+    // The server shares Challonge data between pages, so this only costs calls for this ring's tournaments.
+    setInterval(function () {
+        fetch(location.href, { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+            .then(function (html) {
+                var next = new DOMParser().parseFromString(html, 'text/html');
+                var cur = document.querySelector('.match-container'), fresh = next.querySelector('.match-container');
+                if (cur && fresh && cur.innerHTML !== fresh.innerHTML) cur.innerHTML = fresh.innerHTML;
+                var dot = next.getElementById('paused-dot');
+                if (dot) document.getElementById('paused-dot').className = dot.className;
+            })
+            .catch(function () { /* keep showing the last names */ });
+    }, 20000);
+</script>
 </body>
 </html>

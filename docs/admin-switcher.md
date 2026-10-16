@@ -51,7 +51,9 @@ Layout A (status strip on top) is the chosen design.
 ## Behaviour
 
 - Changes save in place; no full-page reloads, no 30-second auto-reload.
-- The admin page's own polling keeps the data fresh; going live costs no extra Challonge requests.
+- Challonge quota: each tournament refresh is one call (tournament + matches + participants together), and every page shares that copy. A page reuses data another page pulled in the last 20 seconds, so a tournament costs at most 3 calls a minute while something is watching it, and nothing otherwise.
+- What watches what: `/live` the tournament on air, each VS bar its ring's tournaments (refreshing itself every 20 s), a bracket page its tournament on load, `/current_matches` and `/filtered_matches` every tournament (set those OBS sources to shut down when not visible).
+- The admin page never calls Challonge itself. It shows the shared data and how old it is, with a refresh button per tournament (1 call, skipped if the data is under 20 s old). The status strip shows calls in the last hour.
 - What's on air, row order and dropdown picks are saved with the tournament list in Cloud Storage, so everything can be set up before the event and survives a restart.
 
 ## Build notes

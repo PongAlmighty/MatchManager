@@ -3,6 +3,7 @@ import json
 import os
 import re
 import threading
+from collections import deque
 from datetime import datetime, timedelta
 from functools import wraps
 from itertools import chain, zip_longest
@@ -118,9 +119,10 @@ def parse_tournament_id(text):
 
 load_tournaments()
 
-# Every open overlay polls on its own timer; reuse Challonge responses for a few
-# seconds so N overlays don't mean N times the API calls.
-CACHE_TTL = timedelta(seconds=10)
+# Every page that needs a tournament (overlays, VS bars, /live, brackets, admin) shares one copy of
+# its data. A page reuses whatever another page pulled within CACHE_TTL, so each tournament costs at
+# most one Challonge call per CACHE_TTL however many pages are open, and nothing while no page wants it.
+CACHE_TTL = timedelta(seconds=20)
 _cache = {}
 _cache_lock = threading.Lock()
 
@@ -138,16 +140,25 @@ _state = {
     "api_calls": 0,
     "started": datetime.now(timezone),
 }
+_call_times = deque()  # when each Challonge call in the last hour was made
 
 
 class QueriesPaused(Exception):
     pass
 
 
-def api(fn, *args):
+def api(fn, *args, **params):
     """Make one Challonge call and count it against the quota."""
     _state["api_calls"] += 1
-    return fn(*args)
+    _call_times.append(datetime.now(timezone))
+    return fn(*args, **params)
+
+
+def calls_last_hour():
+    cutoff = datetime.now(timezone) - timedelta(hours=1)
+    while _call_times and _call_times[0] < cutoff:
+        _call_times.popleft()
+    return len(_call_times)
 
 
 def pause(reason):
@@ -195,12 +206,34 @@ def peek(key):
     return hit[1] if hit else None
 
 
-def fetch_bracket(tournament_id):
-    """Every match and participant, as Challonge returns them. The overlays and story screens share this."""
+def cache_age(key):
+    """Seconds since key was last fetched from Challonge, or None if it never was."""
+    with _cache_lock:
+        hit = _cache.get(key)
+    return int((datetime.now(timezone) - hit[0]).total_seconds()) if hit else None
+
+
+def fetch_tournament(slug):
+    """One Challonge call: the tournament with all its matches and participants."""
+    info = dict(api(challonge.tournaments.show, slug, include_matches=1, include_participants=1))
+    # The included lists come back wrapped ({"match": {...}}); parse them the way matches.index would.
     return {
-        "matches": api(challonge.matches.index, tournament_id),
-        "participants": api(challonge.participants.index, tournament_id),
+        "info": {k: v for k, v in info.items() if k not in ("matches", "participants")},
+        "matches": challonge.api._parse(info.get("matches") or []),
+        "participants": challonge.api._parse(info.get("participants") or []),
     }
+
+
+def load_tournament(slug):
+    """(info, bracket) for a tournament, from the shared copy or one Challonge call if it's older than CACHE_TTL."""
+    data = cached(("tournament", slug), lambda: fetch_tournament(slug))
+    return data["info"], data
+
+
+def peek_tournament(slug):
+    """(info, bracket) from the shared copy only, or (None, None). Never calls Challonge."""
+    data = peek(("tournament", slug))
+    return (data["info"], data) if data else (None, None)
 
 
 def get_all_matches(bracket):
@@ -465,19 +498,8 @@ def fmt(t):
     return t.strftime("%b %d, %I:%M:%S %p %Z") if t else "never"
 
 
-def tournament_data(slug, fresh):
-    """(info, bracket) for one tournament. fresh may call Challonge through the shared cache; otherwise cached data only."""
-    if fresh:
-        try:
-            return (cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug)),
-                    cached(("bracket", slug), lambda: fetch_bracket(slug)))
-        except Exception as e:
-            print(f"Couldn't load {slug} for the admin page: {e}")
-    return peek(("tournament", slug)), peek(("bracket", slug))
-
-
-def admin_state(fresh=True):
-    """Everything the admin page shows, as JSON-ready data."""
+def admin_state():
+    """Everything the admin page shows, as JSON-ready data. Uses the shared copy only, so it never calls Challonge."""
     now = datetime.now(timezone)
     idle_left = None
     if not _state["paused"]:
@@ -485,7 +507,7 @@ def admin_state(fresh=True):
     rows, live_info = [], None
     for t in tournaments:
         slug = t["slug"]
-        info, bracket = tournament_data(slug, fresh)
+        info, bracket = peek_tournament(slug)
         pins = {"upset": t.get("pinned_upset"), "elimination": t.get("pinned_elimination")}
         choices = {"upset": [], "elimination": []}
         if info and bracket:
@@ -500,7 +522,8 @@ def admin_state(fresh=True):
             "slug": slug,
             "name": name,
             "ring": t.get("ring"),
-            "status": STATUS_LABELS.get(info.get("state"), "In progress") if info else "Waiting for data",
+            "status": STATUS_LABELS.get(info.get("state"), "In progress") if info else "No data yet",
+            "age": cache_age(("tournament", slug)),
             "display": {**DEFAULT_DISPLAY, **t.get("display", {})},
             "choices": choices,
             "picks": picks,
@@ -519,6 +542,7 @@ def admin_state(fresh=True):
             "idle_left": idle_left,
             "idle_pause": str(IDLE_PAUSE),
             "api_calls": _state["api_calls"],
+            "calls_last_hour": calls_last_hour(),
             "started": fmt(_state["started"]),
             "last_change": fmt(_state["last_change"]),
             "last_change_time": _state["last_change"].strftime("%-I:%M %p"),
@@ -534,13 +558,12 @@ def admin_state(fresh=True):
 @app.route("/admin")
 @require_admin
 def admin():
-    return render_template("admin.html", state=admin_state(fresh=False))
+    return render_template("admin.html", state=admin_state())
 
 
 @app.route("/admin/api/state")
 @require_admin
 def admin_api_state():
-    # The open admin page polls this, which keeps the Challonge data fresh (unless queries are paused).
     return jsonify(admin_state())
 
 
@@ -560,7 +583,7 @@ def admin_action(view):
         except Exception as e:
             print(f"Admin change failed: {e}")
             return jsonify({"error": f"Couldn't save the change: {e}"}), 500
-        return jsonify(admin_state(fresh=False))
+        return jsonify(admin_state())
 
     return wrapped
 
@@ -612,13 +635,15 @@ def admin_add_tournament(data):
         raise AdminError(f"{slug} is already on the list.")
     if slug.lower() in reserved_slugs():
         raise AdminError(f"{slug} clashes with one of this app's own pages, so its bracket URL wouldn't work.")
-    # One Challonge call to catch typos and get the tournament's name.
+    # One Challonge call catches typos and gets the name, and its data is kept for the pages to share.
     try:
-        info = api(challonge.tournaments.show, slug)
+        data = fetch_tournament(slug)
     except Exception as e:
         raise AdminError(f"Challonge couldn't find {slug}: {e}")
-    set_config(tournaments + [{"slug": slug, "ring": ring, "name": info.get("name", ""),
+    set_config(tournaments + [{"slug": slug, "ring": ring, "name": data["info"].get("name", ""),
                                "display": dict(DEFAULT_DISPLAY)}])
+    with _cache_lock:
+        _cache[("tournament", slug)] = (datetime.now(timezone), data)
     config_error = ""
 
 
@@ -631,7 +656,6 @@ def admin_remove_tournament(data):
     set_config([t for t in tournaments if t["slug"] != slug])
     with _cache_lock:
         _cache.pop(("tournament", slug), None)
-        _cache.pop(("bracket", slug), None)
 
 
 @app.route("/admin/api/move", methods=["POST"])
@@ -689,7 +713,10 @@ def admin_go_live(data):
     match_id = None
     if mode != "overview":
         match_id = parse_match_id(data.get("match_id"))
-        info, bracket = tournament_data(slug, fresh=True)
+        try:
+            info, bracket = load_tournament(slug)
+        except Exception:
+            info, bracket = peek_tournament(slug)
         if match_id is None or not info or not bracket:
             raise AdminError("Nothing is ready for that screen yet.")
         # Only what that screen's dropdown offers, so an upset-only fight can't go out as an elimination.
@@ -698,6 +725,20 @@ def admin_go_live(data):
         if not any(c["id"] == match_id for c in offered[mode]):
             raise AdminError("That fight isn't ready any more.")
     set_config(new_live={"slug": slug, "mode": mode, "match_id": match_id})
+
+
+@app.route("/admin/api/refresh", methods=["POST"])
+@require_admin
+@admin_action
+def admin_refresh_tournament(data):
+    slug = data.get("slug", "")
+    find_tournament(slug)
+    try:
+        load_tournament(slug)
+    except QueriesPaused:
+        raise AdminError("Challonge queries are paused. Resume them to refresh.")
+    except Exception as e:
+        raise AdminError(f"Couldn't refresh {slug} from Challonge: {e}")
 
 
 @app.route("/admin/api/pause", methods=["POST"])
@@ -730,8 +771,7 @@ def live_data():
     slug = current["slug"]
     t = next((t for t in tournaments if t["slug"] == slug), {})
     try:
-        info = cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug))
-        bracket = cached(("bracket", slug), lambda: fetch_bracket(slug))
+        info, bracket = load_tournament(slug)
         data = build_screen_data(info.get("name") or t.get("name") or slug, bracket["matches"],
                                  bracket["participants"], info.get("tournament_type"), current["mode"],
                                  pinned_match_id=current.get("match_id"), strict=True)
@@ -773,8 +813,9 @@ def vsbar_ring(ring):
 
 
 def vsbar_by_index(ring):
-    matches_data = generate_json_from_matches_by_state("open")
-    matches = matches_data.get_json()
+    # Only load the tournaments this bar can show, so a VS bar never keeps other tournaments refreshing.
+    slugs = None if ring is None else RING_TOURNAMENTS.get(ring, [])
+    matches = generate_json_from_matches_by_state("open", slugs).get_json()
     if ring is None:
         # /vsbar: first underway match across ALL tournaments
         underway = [match for match in matches if match.get("underway_at")]
@@ -802,19 +843,19 @@ def vsbar_by_index(ring):
         return render_template("vsbar.html", match=match_data)
 
 
-def generate_json_from_matches_by_state(state_filter):
+def generate_json_from_matches_by_state(state_filter, slugs=None):
+    """Matches across tournaments (all on the list, or just slugs), in play order."""
     all_relevant_matches = []
     match_start = datetime.now(timezone) + NEXT_MATCH_START
     json_data = []
-    for tid in tournament_ids:
+    for tid in tournament_ids if slugs is None else slugs:
         try:
-            tournament = cached(("tournament", tid), lambda: api(challonge.tournaments.show, tid))
+            tournament, bracket = load_tournament(tid)
             if not tournament:
                 print(f"Tournament {tid} not found")
                 continue
 
             # Copy each match so the tags added below don't touch the cached data.
-            bracket = cached(("bracket", tid), lambda: fetch_bracket(tid))
             matches = [dict(m) for m in get_all_matches(bracket)]
             if not matches:
                 print(f"No matches found for tournament {tid}")
@@ -876,8 +917,7 @@ def bracket(slug):
     display = {**DEFAULT_DISPLAY, **t.get("display", {})}
     name = t.get("name") or slug
     try:
-        info = cached(("tournament", slug), lambda: api(challonge.tournaments.show, slug))
-        bracket_data = cached(("bracket", slug), lambda: fetch_bracket(slug))
+        info, bracket_data = load_tournament(slug)
         data = build_bracket_data(info.get("name") or name, slug, display, info,
                                   bracket_data["matches"], bracket_data["participants"])
     except Exception as e:

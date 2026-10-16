@@ -55,6 +55,8 @@
         .tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .status { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #262B36; color: var(--soft); }
         .status.on { background: #16301F; color: #7EE2A8; }
+        .refresh { height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--control); background: transparent; color: var(--muted); font-size: 12px; white-space: nowrap; }
+        .refresh:hover { color: var(--text); background: var(--button); }
         .ring { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
         .ring input { width: 56px; height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--control); background: var(--panel2); font-size: 14px; }
         .screens { flex: 999 1 640px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
@@ -229,8 +231,8 @@
         $('query-detail').textContent = s.paused ? `${s.pause_reason} (since ${s.paused_at})` : `Auto-pause in ${s.idle_left}`;
         $('pause').textContent = s.paused ? 'Resume' : 'Pause';
         $('pause').onclick = () => post(s.paused ? 'resume' : 'pause');
-        $('calls').textContent = `${s.api_calls} Challonge calls · last change ${s.last_change_time}`;
-        $('calls').title = `Calls counted since ${s.started}. Last data change ${s.last_change}.`;
+        $('calls').textContent = `${s.calls_last_hour} Challonge call${s.calls_last_hour === 1 ? '' : 's'} in the last hour · last change ${s.last_change_time}`;
+        $('calls').title = `${s.api_calls} calls since ${s.started}. Last data change ${s.last_change}.`;
         $('paused-dot').classList.toggle('on', s.paused);
 
         const live = state.live;
@@ -283,6 +285,13 @@
                 }, onAir ? 'LIVE' : 'GO')));
     }
 
+    function ageText(age) {
+        if (age === null || age === undefined) return 'never pulled';
+        if (age < 60) return `${age}s ago`;
+        if (age < 3600) return `${Math.floor(age / 60)} min ago`;
+        return `${Math.floor(age / 3600)} h ago`;
+    }
+
     function row(t, i, all) {
         const isLive = state.live && state.live.slug === t.slug;
         const started = t.status === 'In progress';
@@ -298,6 +307,9 @@
                     h('div', { class: 'slug ellipsis' }, t.slug),
                     h('div', { class: 'tags' },
                         h('span', { class: 'status' + (started ? ' on' : '') }, t.status),
+                        h('button', { type: 'button', class: 'refresh', title: 'Pull this tournament from Challonge now (1 call)',
+                                      'aria-label': `Refresh ${t.name} from Challonge`,
+                                      onclick: () => post('refresh', { slug: t.slug }) }, '↻ ' + ageText(t.age)),
                         h('label', { class: 'ring' }, 'VS ring',
                             h('input', { type: 'number', min: 1, max: 99, placeholder: '–', value: t.ring ?? '',
                                          'aria-label': `VS bar ring for ${t.name}`,
