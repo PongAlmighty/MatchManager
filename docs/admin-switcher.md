@@ -1,7 +1,7 @@
 # Admin switcher redesign
 
 Design canvas (private): https://claude.ai/artifact/XLfTb2qG3Kya9aZadyKVJ4
-Layout A (status strip on top) is the working direction.
+Layout A (status strip on top) is the chosen design.
 
 ## Who and when
 
@@ -16,6 +16,7 @@ Layout A (status strip on top) is the working direction.
 - The per-tournament `/screen/<slug>/...` URLs go away (never deployed).
 - VS bar stays as it is today: `/vsbar` and `/vsbar/<ring>`, ring set per tournament on the admin page.
 - `/current_matches`, `/filtered_matches` and the JSON feeds stay as they are and share the same cached data.
+- Brackets (ported from Brackinator) are their own OBS source, not part of `/live`, at the same path as in Brackinator: `/<challonge id>`. Named routes win over it in Flask, so Add must refuse IDs that clash with them (`admin`, `live`, `vsbar`, ...).
 
 ## Tournament rows
 
@@ -43,7 +44,8 @@ Layout A (status strip on top) is the working direction.
 ## Bottom of the page
 
 - Add tournament (Challonge ID or URL, optional ring).
-- All URLs: OBS sources, data feeds and admin, each with the full URL and a Copy button. VS bar URLs follow the rings in use.
+- Bracket colours: per tournament background, title and round header (from Brackinator's display settings).
+- All URLs: OBS sources, brackets, data feeds and admin, each with the full URL and a Copy button. VS bar URLs follow the rings in use.
 
 ## Behaviour
 
@@ -54,3 +56,4 @@ Layout A (status strip on top) is the working direction.
 ## Build notes
 
 - `pick_upset` / `pick_elimination` in `story.py` return one match each; they need to rank the top 3.
+- Brackinator port: the bracket views (double elim, round robin/Swiss, group stage, three-competitor, podium), the SVG connector script and `match_container.html`. Read from the shared `("bracket", slug)` cache instead of calling Challonge on every page load. Colours move from Brackinator's SQLite `display_settings` into tournaments.json. Enable `jinja2.ext.do`. Skip Brackinator's admin page, CORS and dead templates.
