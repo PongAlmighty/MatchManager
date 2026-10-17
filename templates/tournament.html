@@ -1537,6 +1537,11 @@
 
             // Combined function to draw all connector lines and highlight path
             function drawAllLines() {
+                // At full size the bracket can be taller than the window, and a scrollbar that shows while
+                // measuring but goes away once it's scaled to fit would widen the page and leave every line
+                // a little short of its boxes. Keep the scrollbar out while measuring.
+                const root = document.documentElement;
+                root.style.overflow = 'hidden';
                 unfitBracket();  // Lay out and measure at full size
                 alignFeederRounds();  // Line matches up with the ones they feed / are fed by before measuring lines
 
@@ -1548,6 +1553,7 @@
                 drawPendingAdvancementLines();  // Draw pending advancement lines
 
                 fitBracketToScreen();  // Then shrink it all to fit, if it has to
+                root.style.overflow = '';
             }
 
             // Initial draw after DOM is ready
