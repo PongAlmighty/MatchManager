@@ -1443,8 +1443,47 @@
                 });
             }
 
+            // A round with fewer matches than the round it feeds (a play-in round) would otherwise be
+            // stacked at the top of its column, so its lines all turn at the same x and run down over
+            // each other. Push each of its matches down level with the slot it feeds instead. Matches
+            // only ever move down; if two targets are too close together the line just bends as before.
+            function alignFeederRounds() {
+                const columns = Array.from(document.querySelectorAll('.round-matches'));
+                columns.forEach(col => {
+                    col.querySelectorAll(':scope > .match-container').forEach(m => { m.style.marginTop = ''; });
+                });
+                columns.forEach(col => {
+                    const sources = Array.from(col.querySelectorAll(':scope > .match-container'));
+                    if (!sources.length) return;
+                    const targets = sources.map(s => s.dataset.feedsIntoMatchId &&
+                        document.querySelector(`.match-container[data-match-id="${s.dataset.feedsIntoMatchId}"]`));
+                    if (targets.some(t => !t)) return;
+                    const targetCol = targets[0].closest('.round-matches');
+                    if (!targetCol || targets.some(t => t.closest('.round-matches') !== targetCol)) return;
+                    if (sources.length >= targetCol.querySelectorAll(':scope > .match-container').length) return;
+
+                    sources.forEach((source, i) => {
+                        const target = targets[i];
+                        const slot = targetCol.classList.contains('compact') ? target
+                            : target.querySelector(`.player-box[data-fed-by-match-id="${source.dataset.matchId}"]`)
+                              || (source.dataset.winnerId && target.querySelector(`.player-box[data-participant-id="${source.dataset.winnerId}"]`))
+                              || target;
+                        // A finished match's line leaves from its winner's box, an unfinished one's from its middle.
+                        const anchor = (!col.classList.contains('compact') && source.dataset.winnerId &&
+                            source.querySelector(`.player-box[data-participant-id="${source.dataset.winnerId}"]`)) || source;
+                        const s = anchor.getBoundingClientRect(), t = slot.getBoundingClientRect();
+                        const shift = (t.top + t.height / 2) - (s.top + s.height / 2);
+                        if (shift > 1) {
+                            source.style.marginTop = `${parseFloat(getComputedStyle(source).marginTop) + shift}px`;
+                        }
+                    });
+                });
+            }
+
             // Combined function to draw all connector lines and highlight path
             function drawAllLines() {
+                alignFeederRounds();  // Move play-in matches level with their slots before measuring lines
+
                 // First highlight matches to determine which lines should be highlighted
                 highlightMatchPath();  // Highlight related matches
                 
