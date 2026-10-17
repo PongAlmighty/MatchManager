@@ -16,7 +16,7 @@ import requests
 from flask import Flask, Response, abort, jsonify, render_template, request, url_for
 
 from bracket_view import build_bracket_data
-from story import SCREEN_MODES, build_screen_data, build_upcoming, describe_match, match_choices
+from story import SCREEN_MODES, Bracket, build_screen_data, build_upcoming, describe_match, match_choices, parse_time
 
 app = Flask(__name__)
 app.jinja_env.add_extension("jinja2.ext.do")  # the bracket template uses {% do %}
@@ -854,30 +854,42 @@ def vsbar_ring(ring):
     return vsbar_by_index(ring)
 
 
+def vsbar_slugs(ring):
+    """Tournaments a VS bar watches: its ring's, or for ring 1 with no rings set at all, every one not finished."""
+    if RING_TOURNAMENTS or ring != 1:
+        return RING_TOURNAMENTS.get(ring, [])
+    # Finished tournaments can't start a fight, so once they're known to be complete they cost no more calls.
+    return [slug for slug in tournament_ids if (peek_tournament(slug)[0] or {}).get("state") != "complete"]
+
+
 def vsbar_by_index(ring):
     # Only load the tournaments this bar can show, so a VS bar never keeps other tournaments refreshing.
-    slugs = None if ring is None else RING_TOURNAMENTS.get(ring, [])
-    matches = generate_json_from_matches_by_state("open", slugs).get_json()
-    if ring is None:
-        # /vsbar: first underway match across ALL tournaments
-        underway = [match for match in matches if match.get("underway_at")]
-    else:
-        # /vsbar/<ring>: only this ring's tournaments.
-        # Unknown ring -> empty list -> blank screen (fail safe).
-        ring_tournament_ids = RING_TOURNAMENTS.get(ring, [])
-        underway = [
-            match for match in matches
-            if match.get("underway_at") and match.get("tournament_slug") in ring_tournament_ids
-        ]
-    selected_match = underway[0] if underway else None
-    if selected_match:
+    # Unknown ring -> nothing watched -> blank screen (fail safe).
+    underway = []
+    for slug in vsbar_slugs(ring):
+        try:
+            info, bracket = load_tournament(slug)
+        except Exception as e:
+            print(f"Failed to load tournament {slug} for the VS bar: {e}")
+            continue
+        if not info:
+            continue
+        b = Bracket(bracket["matches"], bracket["participants"], info.get("tournament_type"))
+        for m in bracket["matches"]:
+            started = parse_time(m.get("underway_at"))
+            if m.get("state") == "open" and started and m.get("player1_id") and m.get("player2_id"):
+                underway.append((started, b.player(m["player1_id"])["name"], b.player(m["player2_id"])["name"]))
+    if underway:
+        # The fight marked underway most recently wins, so one left on by mistake doesn't hide the next.
+        _, player1, player2 = max(underway, key=itemgetter(0))
+
         def trim(name):
             name = name or ""
             return name[:20] + "…" if len(name) > 20 else name
         match_data = {
-            "player1": trim(selected_match["player1"]),
+            "player1": trim(player1),
             "versus": "&nbsp;&nbsp;&nbsp;",
-            "player2": trim(selected_match["player2"]),
+            "player2": trim(player2),
         }
         return render_template("vsbar.html", match=match_data)
     else:

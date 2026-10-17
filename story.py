@@ -9,7 +9,7 @@ SCREEN_MODES = ('overview', 'upset', 'elimination')
 GRAND_FINAL_STAGE = 1000
 
 
-def _parse_time(value):
+def parse_time(value):
     """Return an aware datetime for a Challonge timestamp (string or datetime), or None."""
     if not value:
         return None
@@ -148,7 +148,7 @@ class Bracket:
 
     def completed(self):
         done = [m for m in self.matches if m.get('state') == 'complete' and m.get('winner_id') and m.get('loser_id')]
-        return sorted(done, key=lambda m: (_parse_time(m.get('completed_at')) or datetime.min.replace(tzinfo=timezone.utc), m['id']))
+        return sorted(done, key=lambda m: (parse_time(m.get('completed_at')) or datetime.min.replace(tzinfo=timezone.utc), m['id']))
 
     def history(self, pid):
         return [m for m in self.completed() if pid in (m.get('player1_id'), m.get('player2_id'))]
@@ -176,7 +176,7 @@ class Bracket:
         hist = self.history(pid)
         if not hist:
             return None
-        last = _parse_time(hist[-1].get('completed_at'))
+        last = parse_time(hist[-1].get('completed_at'))
         if not last:
             return None
         return max(0, int((self.now - last).total_seconds() // 60))
