@@ -16,7 +16,7 @@ import requests
 from flask import Flask, Response, abort, jsonify, render_template, request, url_for
 
 from bracket_view import build_bracket_data
-from story import SCREEN_MODES, build_screen_data, describe_match, match_choices
+from story import SCREEN_MODES, build_screen_data, build_upcoming, describe_match, match_choices
 
 app = Flask(__name__)
 app.jinja_env.add_extension("jinja2.ext.do")  # the bracket template uses {% do %}
@@ -826,6 +826,22 @@ def pending_matches():
 @app.route("/open_matches.json")
 def open_matches():
     return generate_json_from_matches_by_state("open")
+
+
+@app.route("/upcoming.json")
+def upcoming_data():
+    """Data for the Upcoming page (/current_matches): next fights across every tournament on the list."""
+    rows = []
+    for slug in tournament_ids:
+        try:
+            info, bracket = load_tournament(slug)
+            if not info:
+                continue
+            rows.append((info.get("name", slug), bracket["matches"], bracket["participants"],
+                         info.get("tournament_type")))
+        except Exception as e:
+            print(f"Failed to load tournament {slug} for upcoming: {e}")
+    return jsonify(build_upcoming(rows))
 
 
 @app.route("/vsbar")

@@ -238,19 +238,60 @@ def build_coming_up(b, limit, skip_id=None, with_round=False):
         tag = f'#{order}' if order else b.round_short(m)
         if with_round and order:
             tag = f'{b.round_short(m)} · #{order}'
-        nxt, opp = b.opponent_text(m, for_loser=False)
-        if nxt is None:
-            faces = 'Winner takes the title'
-        elif b.is_grand_final(nxt):
-            faces = f'Winner faces {opp} in the Grand Final'
-        else:
-            faces = f'Winner faces {opp}'
-        if b.eliminates(m) and nxt is not None:
-            faces += ' · loser goes home'
-        out.append({'tag': tag, 'a': b.chip(m['player1_id']), 'b': b.chip(m['player2_id']), 'faces': faces})
+        out.append({'tag': tag, 'a': b.chip(m['player1_id']), 'b': b.chip(m['player2_id']), 'faces': faces_text(b, m)})
         if len(out) == limit:
             break
     return out
+
+
+def faces_text(b, m):
+    """Where the winner of m goes next, e.g. 'Winner faces Bravo · elimination match'."""
+    nxt, opp = b.opponent_text(m, for_loser=False)
+    if nxt is None:
+        faces = 'Winner takes the title'
+    elif b.is_grand_final(nxt):
+        faces = f'Winner faces {opp} in the Grand Final'
+    else:
+        faces = f'Winner faces {opp}'
+    if b.eliminates(m) and nxt is not None:
+        faces += ' · elimination match'
+    return faces
+
+
+def build_upcoming(tournaments, limit=9):
+    """Next fights across tournaments for the Upcoming page (/current_matches).
+
+    tournaments is a list of (name, matches, participants, tournament_type). Fights marked underway
+    come first; the rest take turns between tournaments, each in its own play order."""
+    underway, queues = [], []
+    for name, matches, participants, tournament_type in tournaments:
+        b = Bracket(matches, participants, tournament_type)
+        elimination = 'elimination' in (tournament_type or '').lower()
+        # Group stage matches sit outside the bracket proper (Bracket drops them), so pick them up here.
+        groups = [m for m in matches if m.get('group_id') is not None and m.get('state') == 'open'
+                  and m.get('player1_id') and m.get('player2_id')]
+        ready = sorted(b.ready() + groups, key=lambda m: (m.get('suggested_play_order') or 10 ** 6, m['id']))
+        queue = []
+        for m in ready:
+            in_bracket = m.get('group_id') is None
+            if not in_bracket:
+                round_label = 'Group stage'
+            elif elimination:
+                round_label = b.round_name(m).replace('Round ', 'R') if b.double else b.round_name(m)
+            else:
+                round_label = f'Round {m["round"]}'
+            item = {'tournament': name, 'round': round_label,
+                    'a': b.chip(m['player1_id']), 'b': b.chip(m['player2_id']),
+                    'faces': faces_text(b, m) if in_bracket and elimination else '',
+                    'underway': bool(m.get('underway_at'))}
+            (underway if item['underway'] else queue).append(item)
+        queues.append(queue)
+    out = list(underway)
+    while any(queues):
+        for q in queues:
+            if q:
+                out.append(q.pop(0))
+    return out[:limit]
 
 
 def rank_upsets(b):

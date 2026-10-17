@@ -170,3 +170,32 @@ def test_strict_pin_falls_back_to_overview_not_auto():
     loose = build_screen_data('Test Cup', done, PARTICIPANTS, 'double elimination', 'upset',
                               pinned_match_id=4, now=NOW)
     assert loose['mode'] == 'upset'
+
+
+def test_upcoming_lists_ready_fights_with_where_the_winner_goes():
+    from story import build_upcoming
+    rows = build_upcoming([('Beetles', bracket_after_round_one(), PARTICIPANTS, 'double elimination')])
+    assert [(r['a']['name'], r['b']['name']) for r in rows] == [('Alpha', 'Charlie'), ('Delta', 'Bravo')]
+    assert rows[0]['round'] == 'Winners Final'
+    assert rows[1]['round'] == 'Losers R1'
+    assert rows[1]['faces'].endswith('elimination match')
+    assert not any(r['underway'] for r in rows)
+
+
+def test_upcoming_puts_underway_fights_first_and_interleaves_tournaments():
+    from story import build_upcoming
+    beetles = bracket_after_round_one()
+    beetles[3] = dict(beetles[3], underway_at='2026-10-18T11:58:00Z')
+    ants = [dict(m, id=m['id'] + 100) for m in bracket_after_round_one()]
+    for m in ants:
+        for key in ('player1_prereq_match_id', 'player2_prereq_match_id'):
+            if m[key]:
+                m[key] += 100
+    rows = build_upcoming([('Beetles', beetles, PARTICIPANTS, 'double elimination'),
+                           ('Ants', ants, PARTICIPANTS, 'double elimination')])
+    assert [(r['tournament'], r['round'], r['underway']) for r in rows] == [
+        ('Beetles', 'Losers R1', True),
+        ('Beetles', 'Winners Final', False),
+        ('Ants', 'Winners Final', False),
+        ('Ants', 'Losers R1', False),
+    ]

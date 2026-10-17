@@ -1,63 +1,143 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Current Matches</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Upcoming matches</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Yantramanav:wght@100;300;400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
-  <!-- <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@200..800&family=Yantramanav:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">-->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        html, body { margin: 0; padding: 0; overflow: hidden; background: #00ff00; }
+        /* 1920x1080, scaled to the window like the story screens. The lower-right 640x360 stays clear for the video inset. */
+        #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; font-family: 'Inter', Arial, sans-serif; color: #ffffff; }
+        .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pill { position: absolute; border-radius: 6px; background: #2c2c2c; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+        .list { position: absolute; left: 180px; display: flex; flex-direction: column; }
+        .robot { display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box; min-width: 0; color: #ffffff; }
+        .seed { font-size: 0.7em; opacity: 0.85; white-space: nowrap; }
+
+        /* Next six: [#][tournament/round] ▶ A ▶◀ B ◀ winner faces..., one continuous box. Underway fights turn gold like on the brackets. */
+        .row { display: flex; height: 66px; background: #2c2c2c; border-radius: 6px; }
+        .row .num { width: 64px; flex: none; border-radius: 6px 0 0 6px; background: #121212; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; }
+        .row .tag { width: 220px; flex: none; display: flex; flex-direction: column; justify-content: center; padding: 0 16px; box-sizing: border-box; }
+        .row .tag .sub { font-size: 14px; font-weight: 600; color: #bbbbbb; }
+        .row .tag .rnd { font-size: 19px; font-weight: 700; }
+        /* Hard, unblurred shadow so it keys cleanly against the chroma green. */
+        .row .pair { display: flex; flex: none; filter: drop-shadow(0 3px 0 #111111); }
+        .row .robot { width: 330px; flex: none; padding: 0 44px; font-size: 24px; font-weight: 700; }
+        .row .robot.a { clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 50%, calc(100% - 30px) 100%, 0 100%, 30px 50%); }
+        .row .robot.b { clip-path: polygon(30px 0, 100% 0, calc(100% - 30px) 50%, 100% 100%, 30px 100%, 0 50%); }
+        .row .faces { width: 616px; flex: none; box-sizing: border-box; display: flex; align-items: center; padding: 0 24px 0 28px; font-size: 19px; font-weight: 600; color: #cccccc; }
+        .row.now, .row.now .num { background: #ffd700; color: #222222; }
+        .row.now .num { font-size: 19px; }
+        .row.now .tag .sub { color: #5a4a00; }
+        .row.now .faces { color: #222222; font-weight: 700; }
+
+        /* After that: smaller rows, plain boxes, ending before the video inset. */
+        .small { display: flex; height: 44px; background: #2c2c2c; border-radius: 6px; font-size: 18px; font-weight: 700; }
+        .small .num { width: 48px; flex: none; border-radius: 6px 0 0 6px; background: #121212; display: flex; align-items: center; justify-content: center; }
+        .small .tag { width: 260px; flex: none; display: flex; align-items: center; padding: 0 14px; box-sizing: border-box; font-size: 15px; font-weight: 600; color: #cccccc; }
+        .small .pair { flex: 1; min-width: 0; display: flex; filter: drop-shadow(0 3px 0 #111111); }
+        .small .robot { flex: 1; padding: 0 14px; }
+        .small .robot.b { border-radius: 0 6px 6px 0; }
+        .small .seed { font-size: 0.75em; }
+    </style>
 </head>
-
-<body class="page-body">
+<body>
     <div id="paused-dot" class="paused-dot{{ " on" if queries_paused }}" title="Challonge queries paused"></div>
-   <!-- <div class="roundedRec"> <!-- for rounded rectangle in the background... comment this and it's /div if not needed -->
-      <span class="title">Upcoming Matches</span><br>
-      <span class="subtitle">(All times approx.)</span>
-      <div id="matches">
-      </div>
-  
-  <!--</div>-->
-    
-</body>
-
+    <div id="stage">
+        <div class="pill" style="left: 560px; top: 24px; width: 800px; height: 52px; font-size: 28px">Coming up</div>
+        <div id="top" class="list" style="top: 110px; width: 1560px; gap: 22px"></div>
+        <div id="after-title" class="pill" style="left: 180px; top: 720px; width: 1060px; height: 36px; font-size: 18px; display: none">After that</div>
+        <div id="after" class="list" style="top: 772px; width: 1060px; gap: 14px"></div>
+    </div>
     <script>
-      function update_scoreboard(player_list) {
-          console.log('updating Scoreboard')
-          player_list = player_list.slice(0, 9);
-          var high_scores_html = "";
-          
-          $.each( player_list, function( i, player ) {
-            player_data = 
-              `
-              <span class="players-small">${player.player1} vs ${player.player2}</span> <br>
-              <!-- <span class="time">${player.time}</span> --> 
-              <span class="tournament">(${player.tournament})</span>
-              <span class="NextOpponent">${player.NxtName || ''}</span>`;
-              ;
-              high_scores_html += '<p class="centered_matches">' + player_data + '</p>\n</span>'
-          });
-          $('#matches').html(high_scores_html)
-      };
-  
-      function get_scores() {
-          $.ajax({
-            url: '/matches_data.json',
-            cache: false,
-            error: function(){
-              update_scoreboard([]);
-            },
-            success: function(player_list, status, xhr){
-              update_scoreboard(player_list);
-              $('#paused-dot').toggleClass('on', xhr.getResponseHeader('X-Queries-Paused') === '1');
-            },
-          });
-      };
-  
-     
-      get_scores();
-      console.log('hi mom');
-      setInterval(get_scores, 20000);
+        (function () {
+            const W = 1920, H = 1080, TOP_ROWS = 6, AFTER_ROWS = 3, REFRESH_MS = 20000;
+            const stage = document.getElementById('stage');
+
+            // Same seed colours as static/js/story_screen.js.
+            function colorOf(seed) {
+                const k = seed > 0 ? seed : 1;
+                const h = (195 + ((k - 1) * 0.618034 % 1) * 220) % 360;
+                const warm = h > 15 && h < 60;
+                const l = warm ? 30 : (k % 2 ? 32 : 40);
+                return `hsl(${Math.round(h)}, 62%, ${l}%)`;
+            }
+
+            function el(tag, cls, text) {
+                const e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text !== undefined) e.textContent = text;
+                return e;
+            }
+
+            function robot(chip, side) {
+                const r = el('div', `robot ${side}`);
+                r.style.background = colorOf(chip.seed);
+                r.appendChild(el('span', 't', chip.name));
+                if (chip.seed) r.appendChild(el('span', 'seed', `seed ${chip.seed}`));
+                return r;
+            }
+
+            function pair(m) {
+                const p = el('div', 'pair');
+                p.append(robot(m.a, 'a'), robot(m.b, 'b'));
+                return p;
+            }
+
+            function bigRow(m, n) {
+                const row = el('div', m.underway ? 'row now' : 'row');
+                row.appendChild(el('div', 'num', m.underway ? 'NOW' : String(n)));
+                const tag = el('div', 'tag');
+                tag.append(el('span', 't sub', m.tournament), el('span', 't rnd', m.round));
+                const faces = el('div', 'faces');
+                faces.appendChild(el('span', 't', m.faces));
+                row.append(tag, pair(m), faces);
+                return row;
+            }
+
+            function smallRow(m, n) {
+                const row = el('div', 'small');
+                const tag = el('div', 'tag');
+                tag.appendChild(el('span', 't', `${m.tournament} · ${m.round}`));
+                row.append(el('div', 'num', String(n)), tag, pair(m));
+                return row;
+            }
+
+            let lastJson = null;
+            function render(matches) {
+                const json = JSON.stringify(matches);
+                if (json === lastJson) return;
+                lastJson = json;
+                // Underway fights are marked NOW; the rest count up from 1.
+                let n = 0;
+                const numbered = matches.map(m => [m, m.underway ? 0 : ++n]);
+                document.getElementById('top').replaceChildren(...numbered.slice(0, TOP_ROWS).map(([m, i]) => bigRow(m, i)));
+                const rest = numbered.slice(TOP_ROWS, TOP_ROWS + AFTER_ROWS);
+                document.getElementById('after').replaceChildren(...rest.map(([m, i]) => smallRow(m, i)));
+                document.getElementById('after-title').style.display = rest.length ? 'flex' : 'none';
+            }
+
+            function load() {
+                fetch('/upcoming.json', { cache: 'no-store' })
+                    .then(r => {
+                        document.getElementById('paused-dot').classList.toggle('on', r.headers.get('X-Queries-Paused') === '1');
+                        return r.ok ? r.json() : Promise.reject(r.status);
+                    })
+                    .then(render)
+                    .catch(err => console.error('[upcoming] refresh failed, keeping last frame', err));
+            }
+
+            function fit() {
+                stage.style.transform = `scale(${Math.min(window.innerWidth / W, window.innerHeight / H)})`;
+            }
+
+            fit();
+            window.addEventListener('resize', fit);
+            load();
+            setInterval(load, REFRESH_MS);
+        })();
     </script>
+</body>
 </html>

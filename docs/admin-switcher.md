@@ -15,7 +15,8 @@ Layout A (status strip on top) is the chosen design.
 - `/live` keeps the green `#00ff00` background.
 - The per-tournament `/screen/<slug>/...` URLs go away (never deployed).
 - VS bar stays as it is today: `/vsbar` and `/vsbar/<ring>`, ring set per tournament on the admin page.
-- `/current_matches`, `/filtered_matches` and the JSON feeds stay as they are and share the same cached data.
+- `/current_matches` (Upcoming) is drawn in the story screens' style from `/upcoming.json`: the next six fights across every tournament as arrow rows, then three smaller "After that" rows, with fights marked underway in Challonge on top in gold. It keeps the lower-right video corner clear. Design canvas: https://claude.ai/artifact/TAo5aFYjc5wDuQ6i7FmoU1 (A · Queue).
+- `/filtered_matches` and the older JSON feeds stay as they are and share the same cached data.
 - Brackets (ported from Brackinator) are their own OBS source, not part of `/live`, at the same path as in Brackinator: `/<challonge id>`. Named routes win over it in Flask, so Add must refuse IDs that clash with them (`admin`, `live`, `vsbar`, ...).
 
 ## Tournament rows
