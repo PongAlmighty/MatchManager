@@ -90,7 +90,7 @@
                 const row = el('div', m.underway ? 'row now' : 'row');
                 row.appendChild(el('div', 'num', m.underway ? 'NOW' : String(n)));
                 const tag = el('div', 'tag');
-                tag.append(el('span', 't sub', m.tournament), el('span', 't rnd', m.round));
+                tag.append(el('span', 't sub', m.underway ? `In the arena · ${m.tournament}` : m.tournament), el('span', 't rnd', m.round));
                 const faces = el('div', 'faces');
                 faces.appendChild(el('span', 't', m.faces));
                 row.append(tag, pair(m), faces);
