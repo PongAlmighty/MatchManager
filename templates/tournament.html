@@ -232,13 +232,19 @@
         .tournament-footer-name {
             position: fixed;
             bottom: 10px;
-            left: 0;
-            width: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: calc(100% - 20px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             text-align: center;
             font-size: 2em; /* Using the preferred 2em size */
             font-weight: bold;
-            color: var(--round-title-bg-color); /* Use round title background for font color */
-            padding: 5px;
+            color: var(--title-text-color);
+            background-color: var(--round-title-bg-color); /* A pill, like the /live labels */
+            padding: 5px 24px;
+            border-radius: 6px;
             box-sizing: border-box;
         }
 
@@ -277,6 +283,15 @@
             color: var(--title-text-color);
             border-bottom: 2px solid var(--round-title-bg-color);
             padding-bottom: 0.5em;
+        }
+
+        /* Outside the ranking panel the title has no backdrop, so give it the /live pill */
+        .active-matches-section .section-title {
+            margin: 0 0 0.5em 0;
+            background-color: var(--round-title-bg-color);
+            border-bottom: none;
+            border-radius: 6px;
+            padding: 8px 14px;
         }
         
         .podium {
@@ -394,10 +409,13 @@
         .bracket-label {
             font-size: 1.2em;
             font-weight: bold;
-            color: var(--round-title-bg-color);
+            color: var(--title-text-color);
+            background-color: var(--round-title-bg-color);
+            border-radius: 6px;
+            align-self: flex-start;
             margin: 0.2em 0 0.2em 0; /* Reduced top and bottom margin */
             text-align: left;
-            padding: 0.3em 0;
+            padding: 0.3em 14px;
         }
         
         /* Second Chance Matches Container */
@@ -434,14 +452,6 @@
         .second-chance-matches-container .tbd-player {
             background: #222;
             font-style: italic;
-        }
-        
-        .winners-bracket-label {
-            color: var(--round-title-bg-color) !important;
-        }
-        
-        .second-chance-bracket-label {
-            color: var(--round-title-bg-color) !important;
         }
         
         /* Matchup box styles */
