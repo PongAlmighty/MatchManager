@@ -170,6 +170,21 @@
             border-bottom-left-radius: 0;
         }
         
+        /* Double line: the two robots' boxes touch, rounded only on the match's outer corners */
+        .round-matches:not(.compact) .match-container {
+            gap: 0;
+        }
+
+        .round-matches:not(.compact) .match-container .player-box:first-child:not(:last-child) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .round-matches:not(.compact) .match-container .player-box:last-child:not(:first-child) {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
         .player-box.player-box-single {
             width: 100% !important; /* Ensure full width for single player boxes */
         }
