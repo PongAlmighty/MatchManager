@@ -372,23 +372,6 @@
             flex: 1;
         }
         
-        /* Final Results screen scoped styles (do not affect other screens) */
-        .final-results-screen .ranking-section {
-            max-width: var(--final-panel-max-width, 400px);
-            margin: 0 auto;
-            flex: none; /* override base flex sizing in this context */
-        }
-        .final-results-screen .section-title {
-            font-size: var(--final-title-size, 1.4em);
-        }
-        .final-results-screen .place-number {
-            font-size: var(--final-number-size, 1.2em);
-        }
-        .final-results-screen .place-name,
-        .final-results-screen .competitor-name {
-            font-size: var(--final-name-size, 1.1em);
-        }
-        
         /* Hide connecting lines in three-competitor mode */
         body:has(.three-competitor-layout) #bracket-svg-connectors {
             display: none !important;
@@ -493,6 +476,13 @@
     </style>
     <style>
         body { background-color: var(--main-bg-color); }
+
+        /* Road to the final (endgame.py): a fixed 1920x1080 layout, every box placed by the server */
+        .endgame { position: fixed; left: 0; top: 0; width: 1920px; height: 1080px; }
+        .endgame svg { position: absolute; left: 0; top: 0; }
+        .eg-box { position: absolute; box-sizing: border-box; display: flex; align-items: center; gap: 10px; }
+        .eg-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .eg-extra { white-space: nowrap; }
         #bracket-svg-connectors {
             position: absolute;
             top: 0;
@@ -511,25 +501,16 @@
     
     {# Tournament Complete - Show only podium centered #}
     {% if data.is_tournament_complete %}
-        <div class="final-results-screen" style="display: flex; justify-content: center; align-items: center; min-height: 60vh; padding: 2em; background-color: var(--main-bg-color); --final-title-size: 3em; --final-number-size: 4.2em; --final-name-size: 4em; --final-panel-max-width: 800px;">
-            <div class="ranking-section">
-                <h2 class="section-title">Final Results</h2>
-                {% if data.tournament_type in ['round robin', 'round_robin', 'swiss'] and data.tournament_state != 'complete' %}
-                <div class="finalization-note" style="text-align:center; margin-top:-0.4em; margin-bottom:0.8em; color:#e6e6e6ab; font-weight:300;">Pending Finalization</div>
-                {% endif %}
-                <div class="ranking-item first-place">
-                    <span class="place-number">1st</span>
-                    <span class="competitor-name">{{ data.first_place_name if data.first_place_name else "TBD" }}</span>
-                </div>
-                <div class="ranking-item second-place">
-                    <span class="place-number">2nd</span>
-                    <span class="competitor-name">{{ data.second_place_name if data.second_place_name else "TBD" }}</span>
-                </div>
-                <div class="ranking-item third-place">
-                    <span class="place-number">3rd</span>
-                    <span class="competitor-name">{{ data.third_place_finisher_name if data.third_place_finisher_name else "TBD" }}</span>
-                </div>
-            </div>
+        <div class="endgame">
+            <svg width="1920" height="1080" viewBox="0 0 1920 1080" aria-hidden="true">
+                {% for r in data.final_screen.ribbons %}<path d="{{ r.d }}" fill="{{ r.fill }}"></path>{% endfor %}
+            </svg>
+            {% for b in data.final_screen.boxes %}
+            <div class="eg-box" style="{{ b.style }}"><span class="eg-text">{{ b.text }}</span>{% if b.extra %}<span class="eg-extra" style="{{ b.xstyle }}">{{ b.extra }}</span>{% endif %}</div>
+            {% endfor %}
+        </div>
+        <div class="tournament-footer-name">
+            {{ data.tournament_name | default('Tournament Name Not Available') }}
         </div>
     {% else %}
         {# Old final stage logic completely removed - now handled by three-competitor stage #}
@@ -652,6 +633,17 @@
         {% endfor %}
     </div> {# close .bracket-grid-row #}
     {% endfor %}
+
+    {# Road to the final: 8 or fewer robots left in an elimination bracket. endgame.py lays it all out. #}
+    {% elif data.endgame %}
+        <div class="endgame">
+            <svg width="1920" height="1080" viewBox="0 0 1920 1080" aria-hidden="true">
+                {% for r in data.endgame.ribbons %}<path d="{{ r.d }}" fill="{{ r.fill }}"></path>{% endfor %}
+            </svg>
+            {% for b in data.endgame.boxes %}
+            <div class="eg-box" style="{{ b.style }}"><span class="eg-text">{{ b.text }}</span>{% if b.extra %}<span class="eg-extra" style="{{ b.xstyle }}">{{ b.extra }}</span>{% endif %}</div>
+            {% endfor %}
+        </div>
 
     {# Three Competitor Stage - Show only active rounds on left, ranking on right #}
     {% elif data.is_three_competitor_stage %}
@@ -846,7 +838,8 @@
                 <div class="round-column">
                     <div class="round-title">Losers Round {{ round_num }}</div>
                     {% set current_round_matches = data.loser_matches_by_round[round_num] %}
-                    {% set player_count = current_round_matches | length * 2 %}
+                    {# Sized by the whole round, not just the matches shown, so it doesn't flip layout as it fills #}
+                    {% set player_count = (data.loser_round_sizes[round_num] if data.loser_round_sizes else current_round_matches | length) * 2 %}
                     {% if player_count >= 12 %}
                         <div class="round-matches compact">
                     {% else %}
@@ -1194,12 +1187,13 @@
                     }
                     
                     // Create orthogonal path with rounded corners (like Visio flowchart)
-                    const cornerRadius = 15; // Fixed radius for all corners
                     const midX = startX + (endX - startX) * 0.6; // 60% of the way horizontally
-                    
+                    // Up to 15px, shrunk to fit when the ends are close, so short jogs keep rounded corners
+                    const cornerRadius = Math.min(15, Math.abs(endY - startY) / 2, midX - startX, endX - midX);
+
                     let pathD;
-                    if (Math.abs(endY - startY) < cornerRadius * 2) {
-                        // If vertical distance is too small for corners, use straight line
+                    if (Math.abs(endY - startY) < 1 || cornerRadius <= 0) {
+                        // Level (or no room to turn): straight line
                         pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
                     } else {
                         // Create orthogonal path with rounded corners
@@ -1350,11 +1344,11 @@
                     }
                     
                     // Create simple orthogonal path
-                    const cornerRadius = 15;
                     const midX = startX + (endX - startX) * 0.6;
-                    
+                    const cornerRadius = Math.min(15, Math.abs(endY - startY) / 2, midX - startX, endX - midX);
+
                     let pathD;
-                    if (Math.abs(endY - startY) < cornerRadius * 2) {
+                    if (Math.abs(endY - startY) < 1 || cornerRadius <= 0) {
                         pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
                     } else {
                         if (endY > startY) {
@@ -1447,20 +1441,32 @@
             // stacked at the top of its column, so its lines all turn at the same x and run down over
             // each other. Push each of its matches down level with the slot it feeds instead. Matches
             // only ever move down; if two targets are too close together the line just bends as before.
+            //
+            // Then the classic bracket shape for the opposite case: a round with fewer matches than the
+            // round feeding it (two matches into one) has each match pushed down to sit midway between
+            // its feeders, so their lines meet it from just above and below instead of all climbing
+            // the same gap. Rounds are done left to right so each one sees where the last one landed.
             function alignFeederRounds() {
                 const columns = Array.from(document.querySelectorAll('.round-matches'));
+                const matchesIn = col => Array.from(col.querySelectorAll(':scope > .match-container'));
+                const centerY = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+                // A finished match's line leaves from its winner's box, an unfinished one's from its middle.
+                const lineStart = match => (!match.closest('.round-matches').classList.contains('compact') && match.dataset.winnerId &&
+                    match.querySelector(`.player-box[data-participant-id="${match.dataset.winnerId}"]`)) || match;
+                const pushDown = (match, shift) => {
+                    if (shift > 1) match.style.marginTop = `${parseFloat(getComputedStyle(match).marginTop) + shift}px`;
+                };
+                columns.forEach(col => matchesIn(col).forEach(m => { m.style.marginTop = ''; }));
+
                 columns.forEach(col => {
-                    col.querySelectorAll(':scope > .match-container').forEach(m => { m.style.marginTop = ''; });
-                });
-                columns.forEach(col => {
-                    const sources = Array.from(col.querySelectorAll(':scope > .match-container'));
+                    const sources = matchesIn(col);
                     if (!sources.length) return;
                     const targets = sources.map(s => s.dataset.feedsIntoMatchId &&
                         document.querySelector(`.match-container[data-match-id="${s.dataset.feedsIntoMatchId}"]`));
                     if (targets.some(t => !t)) return;
                     const targetCol = targets[0].closest('.round-matches');
                     if (!targetCol || targets.some(t => t.closest('.round-matches') !== targetCol)) return;
-                    if (sources.length >= targetCol.querySelectorAll(':scope > .match-container').length) return;
+                    if (sources.length >= matchesIn(targetCol).length) return;
 
                     sources.forEach((source, i) => {
                         const target = targets[i];
@@ -1468,21 +1474,71 @@
                             : target.querySelector(`.player-box[data-fed-by-match-id="${source.dataset.matchId}"]`)
                               || (source.dataset.winnerId && target.querySelector(`.player-box[data-participant-id="${source.dataset.winnerId}"]`))
                               || target;
-                        // A finished match's line leaves from its winner's box, an unfinished one's from its middle.
-                        const anchor = (!col.classList.contains('compact') && source.dataset.winnerId &&
-                            source.querySelector(`.player-box[data-participant-id="${source.dataset.winnerId}"]`)) || source;
-                        const s = anchor.getBoundingClientRect(), t = slot.getBoundingClientRect();
-                        const shift = (t.top + t.height / 2) - (s.top + s.height / 2);
-                        if (shift > 1) {
-                            source.style.marginTop = `${parseFloat(getComputedStyle(source).marginTop) + shift}px`;
+                        pushDown(source, centerY(slot) - centerY(lineStart(source)));
+                    });
+                });
+
+                columns.forEach(col => {
+                    const matches = matchesIn(col);
+                    matches.forEach(match => {
+                        const feeders = Array.from(document.querySelectorAll(`.match-container[data-feeds-into-match-id="${match.dataset.matchId}"]`));
+                        if (!feeders.length) return;
+                        const feederCol = feeders[0].closest('.round-matches');
+                        if (!feederCol || feederCol === col || feeders.some(f => f.closest('.round-matches') !== feederCol)) return;
+                        if (!(feederCol.compareDocumentPosition(col) & Node.DOCUMENT_POSITION_FOLLOWING)) return;
+                        if (matches.length >= matchesIn(feederCol).length) return;
+                        if (matches.length === 1) {
+                            // The only match showing in its round: sit it in the middle of the round before,
+                            // which looks more balanced than hugging whichever match happens to feed it.
+                            const before = matchesIn(feederCol);
+                            const mid = (centerY(before[0]) + centerY(before[before.length - 1])) / 2;
+                            pushDown(match, mid - centerY(match));
+                            return;
                         }
+                        if (feeders.length === 1) {
+                            // Only one line comes in (the other robot drops from the winners side), so
+                            // put that line's slot level with it rather than centring the whole match on it.
+                            const f = feeders[0];
+                            const slot = col.classList.contains('compact') ? match
+                                : match.querySelector(`.player-box[data-fed-by-match-id="${f.dataset.matchId}"]`)
+                                  || (f.dataset.winnerId && match.querySelector(`.player-box[data-participant-id="${f.dataset.winnerId}"]`))
+                                  || match;
+                            pushDown(match, centerY(lineStart(f)) - centerY(slot));
+                            return;
+                        }
+                        const mid = feeders.reduce((sum, f) => sum + centerY(lineStart(f)), 0) / feeders.length;
+                        pushDown(match, mid - centerY(match));
                     });
                 });
             }
 
+            // A big double elim can be taller than the screen in its busiest stretch. Shrink the whole
+            // bracket, lines and all, just enough to end above the tournament name; it goes back to full
+            // size once rounds slide off. Runs after the lines are drawn, which measure it unscaled.
+            function fitBracketToScreen() {
+                const container = document.querySelector('.tournament-bracket-container');
+                if (!container || container.querySelector('.endgame')) return;  // the end screen is laid out to fit already
+                const footer = document.querySelector('.tournament-footer-name');
+                const bottom = footer ? footer.getBoundingClientRect().top - 10 : window.innerHeight - 10;
+                const room = bottom - container.getBoundingClientRect().top;
+                const needed = container.scrollHeight;
+                const scale = needed > room && room > 0 ? room / needed : 1;
+                container.style.transformOrigin = 'top center';
+                container.style.transform = scale < 1 ? `scale(${scale})` : '';
+                container.style.marginBottom = scale < 1 ? `${-needed * (1 - scale)}px` : '';
+            }
+
+            function unfitBracket() {
+                const container = document.querySelector('.tournament-bracket-container');
+                if (!container) return;
+                container.style.transform = '';
+                container.style.marginBottom = '';
+            }
+
             // Combined function to draw all connector lines and highlight path
             function drawAllLines() {
-                alignFeederRounds();  // Move play-in matches level with their slots before measuring lines
+                unfitBracket();  // Lay out and measure at full size
+                alignFeederRounds();  // Line matches up with the ones they feed / are fed by before measuring lines
 
                 // First highlight matches to determine which lines should be highlighted
                 highlightMatchPath();  // Highlight related matches
@@ -1490,6 +1546,8 @@
                 // Draw all lines with proper ordering (highlighted lines will be drawn last)
                 updateSvgConnectorLines();  // Draw main connector lines
                 drawPendingAdvancementLines();  // Draw pending advancement lines
+
+                fitBracketToScreen();  // Then shrink it all to fit, if it has to
             }
 
             // Initial draw after DOM is ready
@@ -1503,10 +1561,11 @@
             });
         }); 
     </script>
+    </div>
+    {# Outside the bracket container, so shrinking the bracket to fit leaves the name full size at the bottom #}
     <div class="tournament-footer-name">
             {{ data.tournament_name | default('Tournament Name Not Available') }}
         </div>
-    </div>
     {% endif %} {# End tournament complete check #}
 </body>
 </html>

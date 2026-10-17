@@ -6,6 +6,8 @@ endgame and the podium. The code is kept close to Brackinator's so the display b
 """
 from functools import cmp_to_key
 
+import endgame
+
 UNSEEDED_PLAYER_COLOR = "#b5d16c"
 
 # 42 visually distinct player colours, assigned by seed.
@@ -593,7 +595,26 @@ def build_bracket_data(tournament_name, slug, display_settings, tournament_data,
                 if match['round'] == round_num and match['state'] in ['open', 'pending']:
                     second_chance_matches.append(match)
     # Old final stage logic is now completely replaced by three-competitor stage
-    
+
+    # With 8 or fewer robots left in an elimination bracket, the "Road to the final" screen replaces
+    # both the full bracket and the three-competitor stage.
+    endgame_screen = None
+    if not is_tournament_complete and tournament_data.get('state') in ['underway', 'awaiting_review']:
+        endgame_screen = endgame.build(matches, participants, tournament_type,
+                                       display_settings['round_title_bg_color'])
+        if endgame_screen:
+            is_three_competitor_stage = False
+
+    # Once it's decided, the final results in the same style.
+    final_screen = None
+    if is_tournament_complete:
+        pending = (tournament_type in ['round robin', 'round_robin', 'swiss']
+                   and tournament_data.get('state') != 'complete')
+        final_screen = endgame.final_results(matches, participants, tournament_type,
+                                             (first_place_name, second_place_name, third_place_name),
+                                             display_settings['round_title_bg_color'],
+                                             note='Pending finalization' if pending else None)
+
     # Organize matches by bracket and round for display
     winner_matches_by_round = {r: [] for r in displayable_winner_round_nums}
     for m in all_winner_bracket_matches:
@@ -608,6 +629,16 @@ def build_bracket_data(tournament_name, slug, display_settings, tournament_data,
     # Filter out rounds where all matches consist only of placeholders
     filtered_winner_matches_by_round = filter_placeholder_rounds(winner_matches_by_round)
     filtered_loser_matches_by_round = filter_placeholder_rounds(loser_matches_by_round)
+    # Full size of each losers round, before empty matches are dropped below, so a round keeps one
+    # layout (single or double line) while it fills instead of switching as robots arrive.
+    loser_round_sizes = {r: len(ms) for r, ms in filtered_loser_matches_by_round.items()}
+    # Losers rounds fill up as the winners side plays, so early on most of their matches have nobody in
+    # them yet. Leave those out instead of drawing empty rows; each round grows as robots drop down.
+    filtered_loser_matches_by_round = {
+        r: [m for m in ms if not (m['player1'].get('is_tbd') and m['player2'].get('is_tbd'))]
+        for r, ms in filtered_loser_matches_by_round.items()
+    }
+    filtered_loser_matches_by_round = {r: ms for r, ms in filtered_loser_matches_by_round.items() if ms}
     
     # Prepare template data
     template_data = {
@@ -621,10 +652,13 @@ def build_bracket_data(tournament_name, slug, display_settings, tournament_data,
         'winner_matches_by_round': filtered_winner_matches_by_round,
         'loser_rounds_ordered': sorted(list(filtered_loser_matches_by_round.keys())),
         'loser_matches_by_round': filtered_loser_matches_by_round,
+        'loser_round_sizes': loser_round_sizes,
         'grand_finals_matches': grand_finals_matches,
         'hide_losers_bracket': hide_losers_bracket,
         'is_final_stage': is_final_stage,
         'is_three_competitor_stage': is_three_competitor_stage,
+        'endgame': endgame_screen,
+        'final_screen': final_screen,
         'second_chance_matches': second_chance_matches,
         'is_tournament_complete': is_tournament_complete,
         'third_place_finisher_name': third_place_name,
