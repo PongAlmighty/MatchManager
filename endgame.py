@@ -29,13 +29,6 @@ def color_of(seed):
     return f'hsl({round(h)}, 62%, {l}%)'
 
 
-def match_no(m):
-    """How a match is named on screen: Challonge's play order number, as /live's "#69" uses, not its
-    letter identifier. The grand final reset has no number."""
-    order = m.get('suggested_play_order')
-    return f'#{order}' if order else None
-
-
 def _band(x0, y0, h0, x1, y1, h1, fill):
     """A ribbon joining a box's right edge to another box's left edge, tucked under both."""
     x0 -= 6
@@ -55,6 +48,7 @@ def _window(rounds, by_round):
 
 class _Screen:
     def __init__(self, matches, participants, double, pill_bg):
+        self.bracket = story.Bracket(matches, participants, 'double elimination' if double else 'single elimination')
         self.ms = matches
         self.by_id = {m['id']: m for m in matches}
         self.names = {p['id']: p['name'] for p in participants}
@@ -91,12 +85,19 @@ class _Screen:
         return [(k, m[f'player{n}_prereq_match_id']) for n, k in ((1, 'a'), (2, 'b'))
                 if m.get(f'player{n}_prereq_match_id') and not m.get(f'player{n}_is_prereq_match_loser')]
 
+    def label(self, m):
+        """A match's name as /live gives it: round tag and play order, "LR7 · #66". The grand final
+        reset has no play order number."""
+        tag = self.bracket.round_short(m)
+        order = m.get('suggested_play_order')
+        return f'{tag} · #{order}' if order else f'{tag} reset' if tag == 'GF' else tag
+
     def slot_label(self, m, n):
         pre = m.get(f'player{n}_prereq_match_id')
         if not pre or pre not in self.by_id:
             return 'TBD'
         side = 'Loser' if m.get(f'player{n}_is_prereq_match_loser') else 'Winner'
-        return f"{side} of {match_no(self.by_id[pre]) or 'the grand final'}"
+        return f"{side} of {self.label(self.by_id[pre])}"
 
     # --- one match card ----------------------------------------------------------------------------
 
@@ -107,21 +108,19 @@ class _Screen:
         fs = round(row / 3) if row >= 100 else 26 if row >= 64 else 22 if row >= 54 else 20 if row >= 44 else 16 if row >= 34 else 14
         if w < 200:
             fs -= 1
-        # Shrink until the longest name fits beside its W/L mark (about 0.56em a character).
-        # An empty slot shows "Winner of X" instead, which has to fit too.
-        longest = max(len(self.name(m[f'player{n}_id']) if m.get(f'player{n}_id') else self.slot_label(m, n))
-                      for n in (1, 2))
-        if longest:
-            fs = max(12, min(fs, int((w - 54) / (0.56 * longest))))
+        # Shrink until the longest name fits beside its W/L mark (about 0.56em a character). An empty
+        # slot's "Winner of LR7 · #65" is sized on its own, so it never shrinks a real name.
+        def fit(size, text):
+            return max(12, min(size, int((w - 54) / (0.56 * len(text))))) if text else size
+        fs = fit(fs, max((self.name(m[f'player{n}_id']) for n in (1, 2) if m.get(f'player{n}_id')), key=len, default=''))
         style = GOLD if underway else HEADER
-        title = f'Match {match_no(m)}' if match_no(m) else 'Reset match'
-        self.box(x, top, w, hh, title, note, bg=style['bg'], fg=style['fg'],
+        self.box(x, top, w, hh, self.label(m), note, bg=style['bg'], fg=style['fg'],
                  fs=15 if hh > 26 else 13 if hh > 22 else 12, xfs='1em', radius='6px 6px 0 0')
         for n, radius in ((1, '0'), (2, '0 0 6px 6px')):
             y = top + hh + (n - 1) * row
             pid = m.get(f'player{n}_id')
             if not pid:
-                self.box(x, y, w, row, self.slot_label(m, n), fs=fs - 2, radius=radius, **TBD)
+                self.box(x, y, w, row, self.slot_label(m, n), fs=fit(fs - 2, self.slot_label(m, n)), radius=radius, **TBD)
             elif underway:
                 self.box(x, y, w, row, self.name(pid), bg=GOLD['bg'], fg=GOLD['fg'], fs=fs, radius=radius)
             elif m['state'] == 'complete' and pid == m.get('loser_id'):
@@ -401,7 +400,7 @@ def build(matches, participants, tournament_type, pill_bg='#2C2C2C'):
             losers = [m['loser_id'] for m in semis if m['state'] == 'complete']
             still = [m for m in semis if m['state'] != 'complete']
             places.append(('3rd', ' / '.join(s.name(p) for p in losers) or None, losers[0] if len(losers) == 1 else None,
-                           'Both semifinal losers', ' '.join(f"+ loser of {match_no(m)}" for m in still) if losers else ''))
+                           'Both semifinal losers', ' '.join(f"+ loser of {s.label(m)}" for m in still) if losers else ''))
         section('Podium')
         for place, text, pid, pending, *more in places:
             s.box(x, y, 64, 36, place, bg='#121212', fs=16, justify='center', radius='6px 0 0 6px')

@@ -56,7 +56,7 @@ def test_double_elim_with_6_left():
         assert header in t
     for gone in ('Winners R4', 'Second chance R6', 'Knocked out', 'Podium'):   # finished rounds; no out list, no podium until 3 left
         assert gone not in t
-    assert 'Loser of #63' in t   # a winners semi loser (match AG, play order 63) drops into second chance
+    assert 'Loser of WR5 · #63' in t   # a winners semi loser drops into second chance, named as on /live
     assert_fits_without_overlap(s)
 
 
@@ -68,7 +68,7 @@ def test_single_elim_with_3_left():
         assert header in t
     for gone in ('Quarterfinals', 'Unbeaten', 'Knocked out'):
         assert gone not in t
-    third = next(b for b in s['boxes'] if b['text'] == 'Piston Pucksters' and 'loser of #8' in b['extra'])
+    third = next(b for b in s['boxes'] if b['text'] == 'Piston Pucksters' and 'loser of R3 · #8' in b['extra'])
     assert third
     assert_fits_without_overlap(s)
 
@@ -80,7 +80,7 @@ def test_underway_match_turns_gold():
             m['underway_at'] = '2026-10-17T12:00:00+00:00'
     s = endgame.build(d['matches'], d['participants'], d['tournament']['tournament_type'])
     gold = [b['text'] for b in s['boxes'] if 'background:gold' in b['style']]
-    assert gold == ['Match #8', 'Magnet Maulers', 'Sparkplug Slappers']   # match H is #8 in play order
+    assert gold == ['R3 · #8', 'Magnet Maulers', 'Sparkplug Slappers']   # match H: round 3, #8 in play order
 
 
 def test_only_for_elimination_with_8_or_fewer_left():
@@ -136,8 +136,8 @@ def test_double_elim_reset_match():
                for b in s['boxes'])
     # One ribbon per robot, from the grand final into the reset.
     assert len(s['ribbons']) == 2
-    # Matches go by play order, as on /live; the reset has no number.
-    assert 'Match #70' in t and 'Reset match' in t and not any(re.fullmatch(r'Match [A-Z]+', x) for x in t)
+    # Matches are named as on /live, round and play order; the reset has no number.
+    assert 'GF · #70' in t and 'GF reset' in t and not any(re.fullmatch(r'Match [A-Z]+', x) for x in t)
     assert_fits_without_overlap(s)
 
 
