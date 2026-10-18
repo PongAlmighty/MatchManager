@@ -2,7 +2,7 @@
 
 Once 8 or fewer robots are left, the bracket page swaps the full bracket for this 1920x1080 screen:
 the last rounds as a small bracket that fills in left to right, each winner's colour carried forward
-on a ribbon, and a side column with how many are left, the podium and who has gone out. Double
+on a ribbon, and a side column with how many are left and, from the last 3, the podium. Double
 elimination puts the winners rounds on top and second chance underneath, both feeding the grand
 final. build() returns boxes and ribbon paths with their pixel positions; the template only draws them.
 The look matches the story screens (static/js/story_screen.js) and the design canvas it came from.
@@ -100,7 +100,9 @@ class _Screen:
         if w < 200:
             fs -= 1
         # Shrink until the longest name fits beside its W/L mark (about 0.56em a character).
-        longest = max((len(self.name(m[f'player{n}_id'])) for n in (1, 2) if m.get(f'player{n}_id')), default=0)
+        # An empty slot shows "Winner of X" instead, which has to fit too.
+        longest = max(len(self.name(m[f'player{n}_id']) if m.get(f'player{n}_id') else self.slot_label(m, n))
+                      for n in (1, 2))
         if longest:
             fs = max(12, min(fs, int((w - 54) / (0.56 * longest))))
         style = GOLD if underway else HEADER
@@ -237,18 +239,6 @@ def build(matches, participants, tournament_type, pill_bg='#2C2C2C'):
     def l_name(r):
         return 'Second chance final' if r == l_rounds[-1] else f'Second chance R{abs(r)}'
 
-    def short(m):
-        if m is gf or m is reset:
-            return 'Grand final'
-        if m is third:
-            return '3rd place'
-        if m['round'] < 0:
-            return 'SC final' if m['round'] == l_rounds[-1] else f'SC R{abs(m["round"])}'
-        i = len(w_rounds) - 1 - w_rounds.index(m['round'])
-        if double:
-            return ['W final', 'W semis'][i] if i < 2 else f'WR{m["round"]}'
-        return ['Final', 'SF', 'QF'][i] if i < 3 else f'R{m["round"]}'
-
     s = _Screen(ms, participants, double, pill_bg)
     s.alive = set(alive)
 
@@ -372,61 +362,47 @@ def build(matches, participants, tournament_type, pill_bg='#2C2C2C'):
                 y += 40
             y += 12
 
-    # Podium: decided places by name, the rest by where they'll come from.
-    final_match = reset if reset and reset['state'] == 'complete' else gf if double else (
-        by_round[w_rounds[-1]][0] if w_rounds else None)
-    decided = final_match and final_match['state'] == 'complete' and (
-        not double or final_match is reset or final_match.get('winner_id') == final_match.get('player1_id'))
-    # While a reset match is on, it decides 1st and 2nd.
-    decider = 'grand final reset' if reset_on else 'grand final'
-    places = [
-        ('1st', s.name(final_match['winner_id']) if decided else None,
-         final_match['winner_id'] if decided else None, f'Winner of the {decider}' if double else 'Winner of the final'),
-        ('2nd', s.name(final_match['loser_id']) if decided else None,
-         final_match['loser_id'] if decided else None, f'Loser of the {decider}' if double else 'Loser of the final'),
-    ]
-    if double:
-        lf = by_round[l_rounds[-1]][0] if l_rounds else None
-        lost = lf and lf['state'] == 'complete'
-        places.append(('3rd', s.name(lf['loser_id']) if lost else None, lf['loser_id'] if lost else None,
-                       'Loser of the second chance final'))
-    elif third:
-        lost = third['state'] == 'complete'
-        places.append(('3rd', s.name(third['winner_id']) if lost else None, third['winner_id'] if lost else None,
-                       'Winner of the 3rd place match'))
-    else:
-        # No 3rd place match: both semifinal losers share 3rd.
-        semis = by_round[w_rounds[-2]] if len(w_rounds) > 1 else []
-        losers = [m['loser_id'] for m in semis if m['state'] == 'complete']
-        still = [m for m in semis if m['state'] != 'complete']
-        places.append(('3rd', ' / '.join(s.name(p) for p in losers) or None, losers[0] if len(losers) == 1 else None,
-                       'Both semifinal losers', ' '.join(f"+ loser of {m['identifier']}" for m in still) if losers else ''))
-    section('Podium')
-    for place, text, pid, pending, *more in places:
-        s.box(x, y, 64, 36, place, bg='#121212', fs=16, justify='center', radius='6px 0 0 6px')
-        if text:
-            s.box(x + 64, y, w - 64, 36, text, more[0] if more else '',
-                  bg=color_of(s.seeds.get(pid)) if pid else '#4f4f4f', fs=17, xfs='0.8em', radius='0 6px 6px 0')
+    # The podium comes in once it's down to the last 3: decided places by name, the rest by where
+    # they'll come from.
+    if len(alive) <= 3:
+        final_match = reset if reset and reset['state'] == 'complete' else gf if double else (
+            by_round[w_rounds[-1]][0] if w_rounds else None)
+        decided = final_match and final_match['state'] == 'complete' and (
+            not double or final_match is reset or final_match.get('winner_id') == final_match.get('player1_id'))
+        # While a reset match is on, it decides 1st and 2nd.
+        decider = 'grand final reset' if reset_on else 'grand final'
+        places = [
+            ('1st', s.name(final_match['winner_id']) if decided else None,
+             final_match['winner_id'] if decided else None, f'Winner of the {decider}' if double else 'Winner of the final'),
+            ('2nd', s.name(final_match['loser_id']) if decided else None,
+             final_match['loser_id'] if decided else None, f'Loser of the {decider}' if double else 'Loser of the final'),
+        ]
+        if double:
+            lf = by_round[l_rounds[-1]][0] if l_rounds else None
+            lost = lf and lf['state'] == 'complete'
+            places.append(('3rd', s.name(lf['loser_id']) if lost else None, lf['loser_id'] if lost else None,
+                           'Loser of the second chance final'))
+        elif third:
+            lost = third['state'] == 'complete'
+            places.append(('3rd', s.name(third['winner_id']) if lost else None, third['winner_id'] if lost else None,
+                           'Winner of the 3rd place match'))
         else:
-            s.box(x + 64, y, w - 64, 36, pending, fs=16, radius='0 6px 6px 0', **TBD)
-        y += 40
-    y += 12
-
-    gone = sorted((p for p in in_bracket if len(losses[p]) >= lives),
-                  key=lambda p: (losses[p][-1].get('completed_at') or '', losses[p][-1]['id']), reverse=True)
-    # From 6 left down, the screen is about who's still in; the knocked out list goes.
-    if gone and len(alive) > 6 and y + 44 + 32 <= BOTTOM:
-        section('Knocked out')
-        room = int((BOTTOM - y) // 36)
-        shown = gone if len(gone) <= room else gone[:room - 1]
-        for p in shown:
-            m = losses[p][-1]
-            s.box(x, y, w, 32, s.name(p), f"{short(m)} · {s.name(m['winner_id'])}", bg='#262626', fg='#cccccc',
-                  xfg='#9a9a9a', fw=600, fs=15, xfs='0.85em')
-            y += 36
-        if len(shown) < len(gone):
-            s.box(x, y, w, 32, f'+ {len(gone) - len(shown)} more', bg='#262626', fg='#9a9a9a', fw=600, fs=15,
-                  justify='center')
+            # No 3rd place match: both semifinal losers share 3rd.
+            semis = by_round[w_rounds[-2]] if len(w_rounds) > 1 else []
+            losers = [m['loser_id'] for m in semis if m['state'] == 'complete']
+            still = [m for m in semis if m['state'] != 'complete']
+            places.append(('3rd', ' / '.join(s.name(p) for p in losers) or None, losers[0] if len(losers) == 1 else None,
+                           'Both semifinal losers', ' '.join(f"+ loser of {m['identifier']}" for m in still) if losers else ''))
+        section('Podium')
+        for place, text, pid, pending, *more in places:
+            s.box(x, y, 64, 36, place, bg='#121212', fs=16, justify='center', radius='6px 0 0 6px')
+            if text:
+                s.box(x + 64, y, w - 64, 36, text, more[0] if more else '',
+                      bg=color_of(s.seeds.get(pid)) if pid else '#4f4f4f', fs=17, xfs='0.8em', radius='0 6px 6px 0')
+            else:
+                s.box(x + 64, y, w - 64, 36, pending, fs=16, radius='0 6px 6px 0', **TBD)
+            y += 40
+        y += 12
 
     return {'boxes': s.boxes, 'ribbons': s.ribbons, 'robots_left': len(alive)}
 

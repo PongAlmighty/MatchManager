@@ -52,9 +52,9 @@ def test_double_elim_with_6_left():
     t = texts(s)
     for header in ('Winners semis', 'Winners final', 'Grand final',
                    'Second chance R7', 'Second chance R8', 'Second chance final',
-                   'Unbeaten', 'One life left', 'Podium', 'May need a reset match'):
+                   'Unbeaten', 'One life left', 'May need a reset match'):
         assert header in t
-    for gone in ('Winners R4', 'Second chance R6', 'Knocked out'):   # finished rounds, and the out list at 6 left
+    for gone in ('Winners R4', 'Second chance R6', 'Knocked out', 'Podium'):   # finished rounds; no out list, no podium until 3 left
         assert gone not in t
     assert 'Loser of AG' in t   # a winners semi loser drops into second chance, named in its slot
     assert_fits_without_overlap(s)
@@ -137,3 +137,11 @@ def test_double_elim_reset_match():
     # One ribbon per robot, from the grand final into the reset.
     assert len(s['ribbons']) == 2
     assert_fits_without_overlap(s)
+
+
+def test_no_knocked_out_list_and_podium_only_from_3_left():
+    for name in ('double_elim_6_left.json', 'single_elim_3_left.json', 'double_elim_reset.json'):
+        s = screen(name)
+        t = texts(s)
+        assert 'Knocked out' not in t
+        assert ('Podium' in t) == (s['robots_left'] <= 3)
