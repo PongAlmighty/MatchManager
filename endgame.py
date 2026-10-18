@@ -29,6 +29,13 @@ def color_of(seed):
     return f'hsl({round(h)}, 62%, {l}%)'
 
 
+def match_no(m):
+    """How a match is named on screen: Challonge's play order number, as /live's "#69" uses, not its
+    letter identifier. The grand final reset has no number."""
+    order = m.get('suggested_play_order')
+    return f'#{order}' if order else None
+
+
 def _band(x0, y0, h0, x1, y1, h1, fill):
     """A ribbon joining a box's right edge to another box's left edge, tucked under both."""
     x0 -= 6
@@ -88,7 +95,8 @@ class _Screen:
         pre = m.get(f'player{n}_prereq_match_id')
         if not pre or pre not in self.by_id:
             return 'TBD'
-        return f"{'Loser' if m.get(f'player{n}_is_prereq_match_loser') else 'Winner'} of {self.by_id[pre]['identifier']}"
+        side = 'Loser' if m.get(f'player{n}_is_prereq_match_loser') else 'Winner'
+        return f"{side} of {match_no(self.by_id[pre]) or 'the grand final'}"
 
     # --- one match card ----------------------------------------------------------------------------
 
@@ -106,7 +114,8 @@ class _Screen:
         if longest:
             fs = max(12, min(fs, int((w - 54) / (0.56 * longest))))
         style = GOLD if underway else HEADER
-        self.box(x, top, w, hh, f"Match {m['identifier']}", note, bg=style['bg'], fg=style['fg'],
+        title = f'Match {match_no(m)}' if match_no(m) else 'Reset match'
+        self.box(x, top, w, hh, title, note, bg=style['bg'], fg=style['fg'],
                  fs=15 if hh > 26 else 13 if hh > 22 else 12, xfs='1em', radius='6px 6px 0 0')
         for n, radius in ((1, '0'), (2, '0 0 6px 6px')):
             y = top + hh + (n - 1) * row
@@ -392,7 +401,7 @@ def build(matches, participants, tournament_type, pill_bg='#2C2C2C'):
             losers = [m['loser_id'] for m in semis if m['state'] == 'complete']
             still = [m for m in semis if m['state'] != 'complete']
             places.append(('3rd', ' / '.join(s.name(p) for p in losers) or None, losers[0] if len(losers) == 1 else None,
-                           'Both semifinal losers', ' '.join(f"+ loser of {m['identifier']}" for m in still) if losers else ''))
+                           'Both semifinal losers', ' '.join(f"+ loser of {match_no(m)}" for m in still) if losers else ''))
         section('Podium')
         for place, text, pid, pending, *more in places:
             s.box(x, y, 64, 36, place, bg='#121212', fs=16, justify='center', radius='6px 0 0 6px')
