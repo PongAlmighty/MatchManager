@@ -431,6 +431,24 @@ def match_choices(matches, participants, tournament_type, pins=None, limit=3):
     return out
 
 
+def live_label(b, m):
+    """A fight's name as /live gives it: "LR7 · #66", or "GF reset" for the reset, which has no number."""
+    tag = b.round_short(m)
+    order = m.get('suggested_play_order')
+    return f'{tag} · #{order}' if order else f'{tag} reset' if tag == 'GF' else tag
+
+
+def suggestion_labels(matches, participants, tournament_type, pins=None):
+    """The admin dropdowns' suggestions per story screen, named the /live way for controllers like Companion."""
+    b = Bracket(matches, participants, tournament_type)
+    out = {}
+    for mode, choices in match_choices(matches, participants, tournament_type, pins).items():
+        fights = [b.by_id[c['id']] for c in choices]
+        out[mode] = [{'label': live_label(b, m), 'fighters': f'{b.player(m["player1_id"])["name"]} vs '
+                      f'{b.player(m["player2_id"])["name"]}'} for m in fights]
+    return out
+
+
 def find_screen_match(matches, participants, tournament_type, mode, label):
     """Id of the ready fight a /live label names ("LR7 · #66", "#66" or "66"), or None if that story screen
     can't show it. For controllers like Companion that know a fight by its label, not its Challonge id.

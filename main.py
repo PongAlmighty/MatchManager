@@ -17,7 +17,7 @@ from flask import Flask, Response, abort, jsonify, render_template, request, url
 
 from bracket_view import build_bracket_data
 from story import (SCREEN_MODES, Bracket, build_screen_data, build_upcoming, describe_match, find_screen_match,
-                   match_choices, parse_time)
+                   live_label, match_choices, parse_time, suggestion_labels)
 
 app = Flask(__name__)
 app.jinja_env.add_extension("jinja2.ext.do")  # the bracket template uses {% do %}
@@ -789,6 +789,62 @@ def admin_pause(data):
 @admin_action
 def admin_resume(data):
     resume()
+
+
+def wrap_index(value, count):
+    """A knob position (any whole number, even negative) as an index into a list of count things."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = 0
+    return n % count if count else 0
+
+
+@app.route("/admin/api/companion")
+@require_admin
+def admin_api_companion():
+    """Flat values for Bitfocus Companion knobs. ?t= picks the tournament and ?m= the suggested fight, both
+    wrapping around, for the screen in ?mode=. Uses the shared copy only, so polling it never calls Challonge."""
+    mode = request.args.get("mode", "overview")
+    if mode not in SCREEN_MODES:
+        return jsonify({"error": f"Unknown story screen {mode}."}), 400
+    t_index = wrap_index(request.args.get("t"), len(tournaments))
+    t = tournaments[t_index] if tournaments else {}
+    slug = t.get("slug", "")
+    info, bracket = peek_tournament(slug) if slug else (None, None)
+    fights = []
+    if mode != "overview" and info and bracket:
+        pins = {"upset": t.get("pinned_upset"), "elimination": t.get("pinned_elimination")}
+        try:
+            fights = suggestion_labels(bracket["matches"], bracket["participants"], info.get("tournament_type"),
+                                       pins)[mode]
+        except Exception as e:
+            print(f"Couldn't list Companion suggestions for {slug}: {e}")
+    m_index = wrap_index(request.args.get("m"), len(fights))
+    fight = fights[m_index] if fights else {"label": "", "fighters": ""}
+    on_air = {"slug": "", "mode": "", "match": ""}
+    if live:
+        on_air = {"slug": live["slug"], "mode": live["mode"], "match": ""}
+        live_info, live_bracket = peek_tournament(live["slug"])
+        if live.get("match_id") and live_info and live_bracket:
+            b = Bracket(live_bracket["matches"], live_bracket["participants"], live_info.get("tournament_type"))
+            m = b.by_id.get(live["match_id"])
+            on_air["match"] = live_label(b, m) if m else ""
+    return jsonify({
+        "t": t_index,
+        "tournament_count": len(tournaments),
+        "slug": slug,
+        "name": t.get("name") or (info or {}).get("name") or slug,
+        "mode": mode,
+        "screen": SCREEN_LABELS[mode],
+        "m": m_index,
+        "match_count": len(fights),
+        "match": fight["label"],
+        "fighters": fight["fighters"],
+        "live_slug": on_air["slug"],
+        "live_mode": on_air["mode"],
+        "live_match": on_air["match"],
+    })
 
 
 @app.route("/live")

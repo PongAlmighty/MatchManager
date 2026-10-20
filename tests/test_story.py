@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from story import (Bracket, build_screen_data, describe_match, find_screen_match, match_choices, pick_elimination,
-                   pick_upset)
+                   pick_upset, suggestion_labels)
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
 A, B, C, D = 11, 12, 13, 14
@@ -179,6 +179,15 @@ def test_find_screen_match_by_live_label():
     reset[6] = match(7, 3, A, C, pre1=6, pre2=6, loser2=True)
     assert find('upset', 'GF reset', reset) == 7
     assert find('elimination', 'GF reset', reset) is None
+
+
+def test_suggestion_labels_name_fights_the_live_way():
+    labels = suggestion_labels(bracket_after_round_one(), PARTICIPANTS, 'double elimination')
+    assert labels['upset'][0] == {'label': 'WR2 · #3', 'fighters': 'Alpha vs Charlie'}
+    assert [f['label'] for f in labels['elimination']] == ['LR1 · #4']
+    reset = bracket_after_round_one()
+    reset[6] = match(7, 3, A, C, pre1=6, pre2=6, loser2=True)
+    assert 'GF reset' in [f['label'] for f in suggestion_labels(reset, PARTICIPANTS, 'double elimination')['upset']]
 
 
 def test_strict_pin_falls_back_to_overview_not_auto():
