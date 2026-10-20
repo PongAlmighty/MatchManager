@@ -16,7 +16,8 @@ import requests
 from flask import Flask, Response, abort, jsonify, render_template, request, url_for
 
 from bracket_view import build_bracket_data
-from story import SCREEN_MODES, Bracket, build_screen_data, build_upcoming, describe_match, match_choices, parse_time
+from story import (SCREEN_MODES, Bracket, build_screen_data, build_upcoming, describe_match, find_screen_match,
+                   match_choices, parse_time)
 
 app = Flask(__name__)
 app.jinja_env.add_extension("jinja2.ext.do")  # the bracket template uses {% do %}
@@ -735,13 +736,21 @@ def admin_go_live(data):
             info, bracket = load_tournament(slug)
         except Exception:
             info, bracket = peek_tournament(slug)
-        if match_id is None or not info or not bracket:
+        label = data.get("match")
+        if match_id is None and label and info and bracket:
+            # Companion names the fight by its /live label ("LR7 · #66") instead of the dropdown's id.
+            match_id = find_screen_match(bracket["matches"], bracket["participants"], info.get("tournament_type"),
+                                         mode, label)
+            if match_id is None:
+                raise AdminError(f"{label} isn't a fight the {SCREEN_LABELS[mode]} screen can show right now.")
+        elif match_id is None or not info or not bracket:
             raise AdminError("Nothing is ready for that screen yet.")
-        # Only what that screen's dropdown offers, so an upset-only fight can't go out as an elimination.
-        pins = {"upset": t.get("pinned_upset"), "elimination": t.get("pinned_elimination")}
-        offered = match_choices(bracket["matches"], bracket["participants"], info.get("tournament_type"), pins)
-        if not any(c["id"] == match_id for c in offered[mode]):
-            raise AdminError("That fight isn't ready any more.")
+        else:
+            # Only what that screen's dropdown offers, so an upset-only fight can't go out as an elimination.
+            pins = {"upset": t.get("pinned_upset"), "elimination": t.get("pinned_elimination")}
+            offered = match_choices(bracket["matches"], bracket["participants"], info.get("tournament_type"), pins)
+            if not any(c["id"] == match_id for c in offered[mode]):
+                raise AdminError("That fight isn't ready any more.")
     set_config(new_live={"slug": slug, "mode": mode, "match_id": match_id})
 
 

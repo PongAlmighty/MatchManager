@@ -3,6 +3,7 @@
 Everything here works on raw Challonge match and participant dicts so it can be
 tested without the API. The browser renders the returned dict in static/js/story_screen.js.
 """
+import re
 from datetime import datetime, timezone
 
 SCREEN_MODES = ('overview', 'upset', 'elimination')
@@ -428,6 +429,24 @@ def match_choices(matches, participants, tournament_type, pins=None, limit=3):
             top.append(pinned)
         out[mode] = [{'id': m['id'], 'label': match_label(b, m)} for m in top]
     return out
+
+
+def find_screen_match(matches, participants, tournament_type, mode, label):
+    """Id of the ready fight a /live label names ("LR7 · #66", "#66" or "66"), or None if that story screen
+    can't show it. For controllers like Companion that know a fight by its label, not its Challonge id.
+    The grand final reset has no play order number, so any label with "reset" in it names that."""
+    b = Bracket(matches, participants, tournament_type)
+    text = str(label or '').strip()
+    num = re.search(r'#\s*(\d+)', text) or re.fullmatch(r'\d+', text)
+    if num:
+        order = int(num.group(1) if num.groups() else num.group(0))
+        m = next((m for m in b.matches if m.get('suggested_play_order') == order), None)
+    elif 'reset' in text.lower():
+        m = next((m for m in b.matches if b.is_reset(m)), None)
+    else:
+        return None
+    allowed = rank_upsets(b) if mode == 'upset' else rank_eliminations(b)
+    return m['id'] if m in allowed else None
 
 
 def describe_match(matches, participants, tournament_type, match_id):

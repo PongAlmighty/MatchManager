@@ -11,7 +11,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from story import Bracket, build_screen_data, describe_match, match_choices, pick_elimination, pick_upset
+from story import (Bracket, build_screen_data, describe_match, find_screen_match, match_choices, pick_elimination,
+                   pick_upset)
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
 A, B, C, D = 11, 12, 13, 14
@@ -159,6 +160,25 @@ def test_match_choices_limit_keeps_pinned_match():
 def test_describe_match():
     assert describe_match(bracket_after_round_one(), PARTICIPANTS, 'double elimination', 3) == 'Alpha/Charlie 1/3 W2'
     assert describe_match(bracket_after_round_one(), PARTICIPANTS, 'double elimination', 5) is None
+
+
+def test_find_screen_match_by_live_label():
+    def find(mode, label, matches=None):
+        return find_screen_match(matches or bracket_after_round_one(), PARTICIPANTS, 'double elimination', mode, label)
+    assert find('upset', 'WR2 · #3') == 3
+    assert find('elimination', 'LR1 · #4') == 4
+    assert find('elimination', '#4') == 4
+    assert find('elimination', '4') == 4
+    # WR2 sends nobody home, #5 isn't ready yet, and a label with no number names nothing.
+    assert find('elimination', 'WR2 · #3') is None
+    assert find('upset', 'LR2 · #5') is None
+    assert find('upset', 'Bogus') is None
+    assert find('upset', '') is None
+    # The reset has no play order number in real brackets.
+    reset = bracket_after_round_one()
+    reset[6] = match(7, 3, A, C, pre1=6, pre2=6, loser2=True)
+    assert find('upset', 'GF reset', reset) == 7
+    assert find('elimination', 'GF reset', reset) is None
 
 
 def test_strict_pin_falls_back_to_overview_not_auto():
