@@ -16,7 +16,7 @@ import requests
 from flask import Flask, Response, abort, jsonify, render_template, request, url_for
 
 from bracket_view import build_bracket_data
-from story import (SCREEN_MODES, Bracket, build_screen_data, build_upcoming, describe_match, find_screen_match,
+from story import (SCREEN_MODES, Bracket, build_pregame, build_screen_data, build_upcoming, describe_match, find_screen_match,
                    live_label, match_choices, parse_time, suggestion_labels)
 
 app = Flask(__name__)
@@ -509,7 +509,18 @@ def require_admin(view):
 
 
 SCREEN_LABELS = {"overview": "Overview", "upset": "Upset watch", "elimination": "Elimination"}
-STATUS_LABELS = {"pending": "Not started", "complete": "Complete"}
+# Challonge states before a bracket is started. Until then there's no bracket to tell a story about,
+# so /live shows the pregame screen (who's in so far) for that tournament whatever screen was pushed.
+NOT_STARTED = ("pending", "checking_in", "checked_in")
+STATUS_LABELS = {**{state: "Not started" for state in NOT_STARTED}, "complete": "Complete"}
+
+
+def is_pregame(info):
+    return bool(info) and info.get("state") in NOT_STARTED
+
+
+def screen_label(mode, info):
+    return "Pregame" if mode == "overview" and is_pregame(info) else SCREEN_LABELS[mode]
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -543,6 +554,7 @@ def admin_state():
             "ring": t.get("ring"),
             "status": STATUS_LABELS.get(info.get("state"), "In progress") if info else "No data yet",
             "age": cache_age(("tournament", slug)),
+            "pregame": is_pregame(info),
             "display": {**DEFAULT_DISPLAY, **t.get("display", {})},
             "choices": choices,
             "picks": picks,
@@ -552,7 +564,7 @@ def admin_state():
             if live.get("match_id") and info and bracket:
                 label = describe_match(bracket["matches"], bracket["participants"], info.get("tournament_type"),
                                        live["match_id"]) or ""
-            live_info = {**live, "tournament": name, "screen": SCREEN_LABELS[live["mode"]], "match": label}
+            live_info = {**live, "tournament": name, "screen": screen_label(live["mode"], info), "match": label}
     return {
         "status": {
             "paused": _state["paused"],
@@ -836,7 +848,7 @@ def admin_api_companion():
         "slug": slug,
         "name": t.get("name") or (info or {}).get("name") or slug,
         "mode": mode,
-        "screen": SCREEN_LABELS[mode],
+        "screen": screen_label(mode, info),
         "m": m_index,
         "match_count": len(fights),
         "match": fight["label"],
@@ -863,13 +875,18 @@ def live_data():
     t = next((t for t in tournaments if t["slug"] == slug), {})
     try:
         info, bracket = load_tournament(slug)
-        data = build_screen_data(info.get("name") or t.get("name") or slug, bracket["matches"],
-                                 bracket["participants"], info.get("tournament_type"), current["mode"],
-                                 pinned_match_id=current.get("match_id"), strict=True)
+        name = info.get("name") or t.get("name") or slug
+        if is_pregame(info):
+            data = build_pregame(name, bracket["participants"])
+        else:
+            data = build_screen_data(name, bracket["matches"], bracket["participants"],
+                                     info.get("tournament_type"), current["mode"],
+                                     pinned_match_id=current.get("match_id"), strict=True)
     except Exception as e:
         print(f"Failed to build the live story screen for {slug}: {e}")
         return jsonify({"error": str(e)}), 503
-    data["key"] = f'{slug}:{current["mode"]}:{current.get("match_id")}'
+    # The mode is part of the key so /live fades from pregame to the overview when the bracket starts.
+    data["key"] = f'{slug}:{current["mode"]}:{current.get("match_id")}:{data["mode"]}'
     return jsonify(data)
 
 

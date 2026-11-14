@@ -4,7 +4,7 @@ Everything here works on raw Challonge match and participant dicts so it can be
 tested without the API. The browser renders the returned dict in static/js/story_screen.js.
 """
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 SCREEN_MODES = ('overview', 'upset', 'elimination')
 GRAND_FINAL_STAGE = 1000
@@ -293,6 +293,44 @@ def build_upcoming(tournaments, limit=9):
             if q:
                 out.append(q.pop(0))
     return out[:limit]
+
+
+def _ago_text(verb, minutes):
+    if minutes < 1:
+        return f'{verb} just now'
+    if minutes < 60:
+        return f'{verb} {minutes} min ago'
+    return f'{verb} {minutes // 60} h {minutes % 60} min ago'
+
+
+def build_pregame(tournament_name, participants, now=None, background='#00ff00', recent_limit=8, recent_hours=12):
+    """Data for the pregame screen, which /live shows until the bracket is started: everyone
+    in the bracket so far, in seed order, and the newest arrivals (newest first) so they can be
+    called out as they pass safety.
+
+    If anyone has been checked in on Challonge, arrivals are check-ins. If the organizer doesn't use
+    check-in, they are robots added to the bracket. Either way only the last recent_hours count, so a
+    roster entered days ahead doesn't show up as news."""
+    now = now or datetime.now(timezone.utc)
+
+    def chip(p):
+        return {'seed': p.get('seed') or 0, 'name': p.get('name') or 'Unknown'}
+
+    robots = sorted(participants, key=lambda p: (p.get('seed') or 10 ** 6, p['id']))
+    checked_in = [p for p in participants if parse_time(p.get('checked_in_at'))]
+    field, verb, title = (('checked_in_at', 'Checked in', 'Just checked in') if checked_in
+                          else ('created_at', 'Added', 'Just added'))
+    times = [(parse_time(p.get(field)), p) for p in participants]
+    recent = sorted(((t, p['id'], p) for t, p in times if t and now - t <= timedelta(hours=recent_hours)),
+                    key=lambda x: x[:2], reverse=True)[:recent_limit]
+    return {
+        'tournament_name': tournament_name, 'background': background, 'mode': 'pregame',
+        'robots': [chip(p) for p in robots],
+        'recent_title': title,
+        'checked_in': len(checked_in) if checked_in else None,
+        'recent': [dict(chip(p), detail=_ago_text(verb, max(0, int((now - t).total_seconds() // 60))))
+                   for t, _, p in recent],
+    }
 
 
 def rank_upsets(b):

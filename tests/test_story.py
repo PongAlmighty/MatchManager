@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from story import (Bracket, build_screen_data, describe_match, find_screen_match, match_choices, pick_elimination,
+from story import (Bracket, build_pregame, build_screen_data, describe_match, find_screen_match, match_choices, pick_elimination,
                    pick_upset, suggestion_labels)
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
@@ -228,3 +228,37 @@ def test_upcoming_puts_underway_fights_first_and_interleaves_tournaments():
         ('Ants', 'Winners Final', False),
         ('Ants', 'Losers R1', False),
     ]
+
+
+def test_pregame_lists_roster_by_seed_and_newest_additions_first():
+    participants = [
+        {'id': 1, 'name': 'Alpha', 'seed': 2, 'created_at': '2026-10-17T09:00:00Z'},   # entered the day before
+        {'id': 2, 'name': 'Bravo', 'seed': 1, 'created_at': '2026-10-18T10:45:00Z'},
+        {'id': 3, 'name': 'Charlie', 'seed': 3, 'created_at': '2026-10-18T11:57:00Z'},
+        {'id': 4, 'name': 'Delta', 'seed': 4, 'created_at': datetime(2026, 10, 18, 11, 59, 40, tzinfo=timezone.utc)},
+    ]
+    data = build_pregame('Beetles', participants, now=NOW)
+    assert data['mode'] == 'pregame'
+    assert [r['name'] for r in data['robots']] == ['Bravo', 'Alpha', 'Charlie', 'Delta']
+    assert [(r['name'], r['detail']) for r in data['recent']] == [
+        ('Delta', 'Added just now'), ('Charlie', 'Added 3 min ago'), ('Bravo', 'Added 1 h 15 min ago')]
+    assert len(build_pregame('Beetles', participants, now=NOW, recent_limit=2)['recent']) == 2
+    assert build_pregame('Beetles', [], now=NOW)['robots'] == []
+
+
+def test_pregame_uses_check_ins_when_anyone_has_checked_in():
+    participants = [
+        {'id': 1, 'name': 'Alpha', 'seed': 1, 'created_at': '2026-10-10T09:00:00Z', 'checked_in_at': '2026-10-18T11:50:00Z'},
+        {'id': 2, 'name': 'Bravo', 'seed': 2, 'created_at': '2026-10-18T11:59:00Z', 'checked_in_at': None},
+        {'id': 3, 'name': 'Charlie', 'seed': 3, 'created_at': '2026-10-10T09:00:00Z', 'checked_in_at': '2026-10-18T11:58:00Z'},
+    ]
+    data = build_pregame('Beetles', participants, now=NOW)
+    assert data['recent_title'] == 'Just checked in' and data['checked_in'] == 2
+    assert [(r['name'], r['detail']) for r in data['recent']] == [
+        ('Charlie', 'Checked in 2 min ago'), ('Alpha', 'Checked in 10 min ago')]
+    assert len(data['robots']) == 3
+    for p in participants:
+        p['checked_in_at'] = None
+    data = build_pregame('Beetles', participants, now=NOW)
+    assert data['recent_title'] == 'Just added' and data['checked_in'] is None
+    assert [r['name'] for r in data['recent']] == ['Bravo']

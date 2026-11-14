@@ -254,6 +254,8 @@
     }
 
     function tile(t, mode, label) {
+        // Before the bracket starts there's nothing to overview, so this screen is the pregame roster.
+        if (mode === 'overview' && t.pregame) label = 'Pregame';
         const live = state.live;
         const isOverview = mode === 'overview';
         const choices = isOverview ? [] : t.choices[mode];
@@ -266,7 +268,7 @@
 
         let control;
         if (isOverview) {
-            control = h('div', { class: 'tile-note' }, 'Bracket at a glance');
+            control = h('div', { class: 'tile-note' }, t.pregame ? "Who's in the bracket so far" : 'Bracket at a glance');
         } else if (empty) {
             control = h('div', { class: 'tile-empty' }, 'Nothing ready');
         } else {

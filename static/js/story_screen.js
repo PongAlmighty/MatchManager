@@ -1,4 +1,5 @@
-// Draws the 1920x1080 story screens (overview, upset watch, elimination) from /live/data.
+// Draws the 1920x1080 story screens (overview, upset watch, elimination) from /live/data, and the
+// pregame screen (who's in the bracket so far) that /live shows until a bracket is started.
 // The lower-right 640x360 corner is always left as bare background for the switcher's video inset.
 (function () {
   const W = 1920, H = 1080;
@@ -27,6 +28,43 @@
 
     pill(560, 24, 800, data.tournament_name, 52, 28);
     const finished = data.finished || [], comingUp = data.coming_up || [];
+
+    if (data.mode === 'pregame') {
+      const recent = data.recent || [], robots = data.robots || [];
+      // With nobody new to call out, the roster takes the whole width.
+      const GX = recent.length ? 480 : 40, GW = 1880 - GX, TOP = 164, BOTTOM = 1050, GAP = 12;
+      if (recent.length) pill(40, 110, 400, data.recent_title || 'Just added');
+      recent.forEach((r, i) => {
+        const y = TOP + i * 96;
+        robot(40, y, 400, 44, r.seed, r.name, { fs: 20, radius: '6px 6px 0 0' });
+        box(40, y + 44, 400, 34, { text: r.detail, fg: '#dddddd', fs: 15, fw: 600, radius: '0 0 6px 6px' });
+      });
+      const checkedIn = data.checked_in == null ? '' : ` · ${data.checked_in} checked in`;
+      pill(GX, 110, GW, `In the bracket · ${robots.length} robot${robots.length === 1 ? '' : 's'}${checkedIn}`);
+      // Row by row in seed order, skipping cells that would cover the video inset.
+      const cells = ([cols, h]) => {
+        const cw = (GW - (cols - 1) * GAP) / cols, out = [];
+        for (let y = TOP; y + h <= BOTTOM; y += h + GAP) {
+          for (let c = 0; c < cols; c++) {
+            const x = GX + c * (cw + GAP);
+            if (x + cw > 1270 && y + h > 710) continue;
+            out.push([x, y, cw]);
+          }
+        }
+        return out;
+      };
+      // [columns, row height, font size]: the biggest chips that still fit everyone.
+      const SIZES = [[2, 80, 28], [3, 66, 24], [4, 56, 22], [5, 48, 19], [6, 40, 16], [7, 34, 14], [8, 30, 13]];
+      const size = SIZES.find(s => cells(s).length >= robots.length) || SIZES[SIZES.length - 1];
+      const slots = cells(size);
+      const more = robots.length - slots.length;
+      robots.slice(0, slots.length).forEach((r, i) => {
+        const [x, y, cw] = slots[i];
+        if (more > 0 && i === slots.length - 1) return tbd(x, y, cw, size[1], `+ ${more + 1} more`, { fs: size[2], justify: 'center' });
+        robot(x, y, cw, size[1], r.seed, r.name, { fs: size[2], pad: size[1] < 44 ? '0 10px' : '0 14px' });
+      });
+      return { boxes, ribbons, overlays };
+    }
 
     if (data.mode === 'overview' || !data.story) {
       pill(40, 110, 400, 'Just finished');

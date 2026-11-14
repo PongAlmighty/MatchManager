@@ -24,7 +24,7 @@ Layout A (status strip on top) is the chosen design.
 - One row per tournament, reorderable with up/down buttons, removable (with a confirm).
 - Each row: name, Challonge ID, status (In progress / Not started), VS bar ring.
 - Three screens per row, each with its own GO button:
-  - Overview: no settings.
+  - Overview: no settings. Until the bracket is started in Challonge this tile reads Pregame (see below).
   - Upset watch and Elimination: an always-visible dropdown of at most 3 suggested matches.
 - Dropdown labels: `Robot1/Robot2 seed1/seed2 round`, e.g. `Gremlin/Hexcavator 14/3 W3`. The auto pick is first and starts with `*`.
 - No matches ready: "Nothing ready", GO disabled.
@@ -35,6 +35,7 @@ Layout A (status strip on top) is the chosen design.
 - The on-air screen and its row are highlighted; the top strip shows what's on air.
 - When the bracket moves on, the dropdown re-ranks its suggestions but what's on air stays put until GO.
 - If the fight that's on air finishes, `/live` falls back to that tournament's Overview rather than picking a different fight on its own.
+- Pregame: while a tournament hasn't been started in Challonge (pending or checking in), `/live` shows the pregame screen for it whatever was pushed: everyone in the bracket so far in seed order, sized to fit, and a column of the newest arrivals (last 12 hours, newest first, up to 8) to call out as they pass safety. If anyone has been checked in on Challonge the column is "Just checked in" and the header counts check-ins; if the organizer doesn't use check-in it is "Just added", by when each robot was added to the bracket. Its Overview tile is labelled Pregame, and GO on it (or Companion's overview GO) puts it on air. When the bracket starts, `/live` fades to the Overview on its own.
 - Clicking the on-air screen's LIVE button again takes it off air: `/live` goes to plain chroma green and stops pulling that tournament's data.
 
 ## Status strip (top)
